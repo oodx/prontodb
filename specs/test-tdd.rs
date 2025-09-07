@@ -1,0 +1,15 @@
+// Corrected TDD-style test for ProntoDB MVP
+use std::env; use std::fs; use std::io::Write; use std::process::{Command, Stdio}; use std::thread::sleep; use std::time::Duration;
+fn bin()->String{env::var("PRONTODB_BIN").unwrap_or("./target/debug/prontodb".into())}
+fn run(home:&str,args:&[&str])->(i32,String,String){let out=Command::new(bin()).args(args).env("HOME",home).output().unwrap();(out.status.code().unwrap_or(-1),String::from_utf8_lossy(&out.stdout).into(),String::from_utf8_lossy(&out.stderr).into())}
+fn stream(home:&str,s:&str)->(i32,String,String){let mut c=Command::new(bin());c.arg("stream").env("HOME",home).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());let mut ch=c.spawn().unwrap();ch.stdin.as_mut().unwrap().write_all(s.as_bytes()).unwrap();let out=ch.wait_with_output().unwrap();(out.status.code().unwrap_or(-1),String::from_utf8_lossy(&out.stdout).into(),String::from_utf8_lossy(&out.stderr).into())}
+fn write_conf(home:&str, s:&str){let etc=format!("{}/.local/etc/odx/prontodb",home);fs::create_dir_all(&etc).unwrap();fs::write(format!("{}/pronto.conf",etc),s).unwrap();}
+fn mkhome(tag:&str)->String{let h=format!("{}/.prontodb_tdd_{}_{}",std::env::temp_dir().display(),tag,std::process::id());fs::create_dir_all(&h).unwrap();h}
+fn main(){
+ let h=mkhome("usage"); let (c,o,_e)=run(&h,&[]); assert_eq!(c,0); assert!(o.contains("prontodb"));
+ let h=mkhome("install"); let (c,_o,e)=run(&h,&["install"]); assert_eq!(c,0,e); assert!(std::path::Path::new(&(h.clone()+"/.local/etc/odx/prontodb")).exists());
+ let h=mkhome("setget"); assert_eq!(run(&h,&["install"]).0,0,"install"); assert_eq!(run(&h,&["set","kb.recipes.pasta__it","{\"s\":\"r\"}","--json"]).0,0,"set"); let (c,o,e)=run(&h,&["get","kb.recipes.pasta__it","--json"]); assert_eq!(c,0,e); assert!(o.contains("s"));
+ let h=mkhome("delim"); assert_eq!(run(&h,&["install"]).0,0,"install"); assert_eq!(run(&h,&["--ns-delim","|","set","kb|recipes|g","v"]).0,0,"set"); let (c,o,e)=run(&h,&["--ns-delim","|","get","kb|recipes|g"]); assert_eq!(c,0,e); assert!(o.contains("v"));
+ let h=mkhome("ttl"); assert_eq!(run(&h,&["install"]).0,0,"install"); assert_eq!(run(&h,&["admin","create-cache","kb.recipes","timeout=2"]).0,0,"create-cache"); assert_eq!(run(&h,&["set","kb.recipes.tmp","X"]).0,0,"set"); sleep(Duration::from_secs(3)); let (c,o,_e)=run(&h,&["get","kb.recipes.tmp"]); assert!(c==0 && o.is_empty(), "expired -> empty stdout, code 0 if not yet refactored");
+ let h=mkhome("stream"); assert_eq!(run(&h,&["install"]).0,0,"install"); let (c1,_o1,_e1)=stream(&h,"meta:path=kb.recipes; k=v;"); assert!(c1!=0,"auth required"); write_conf(&h,"ns_delim=\".\"\nsecurity.required=false\n"); let (c2,_o2,e2)=stream(&h,"meta:path=kb.recipes; x=y;"); assert_eq!(c2,0,e2); let (_cg,og,_eg)=run(&h,&["get","kb.recipes.x"]); assert!(og.contains("y"));
+}
