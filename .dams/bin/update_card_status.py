@@ -45,16 +45,15 @@ def save_card(card_path, card_data):
         sys.exit(1)
 
 def find_current_card():
-    """Find which card is currently active (status: 🟡 CURRENT)"""
+    """Find which card is currently active (any card published to project root)"""
     current_cards = []
     
-    # Check all CARD_*.yml files in project root
+    # Check all CARD_*.yml files in project root - if published, it's "current"
     for card_file in Path(".").glob("CARD_*.yml"):
         try:
             card_data = load_card(card_file)
-            if card_data.get('status') == '🟡 CURRENT':
-                card_num = int(card_file.stem.split('_')[1])
-                current_cards.append((card_num, card_file))
+            card_num = int(card_file.stem.split('_')[1])
+            current_cards.append((card_num, card_file))
         except:
             continue
     
@@ -109,27 +108,30 @@ def update_status(card_number, new_status):
     card_data = load_card(card_path)
     current_status = card_data.get('status', '🟡 CURRENT')
     
-    # TYRANNICAL WORKFLOW RULES
-    if len(current_cards) == 0 and current_status != '🟡 CURRENT':
-        print(f"🦫 BEAVER CONFUSION: No current card found!")
-        print(f"   Card {card_number:03d} status: {current_status}")
-        print(f"🦫 WORKFLOW ERROR: Cannot update non-current card when no card is active!")
+    # TYRANNICAL WORKFLOW RULES - "current" = published to project root
+    if len(current_cards) == 0:
+        print(f"🦫 BEAVER CONFUSION: No cards published to project root!")
+        print(f"🦫 WORKFLOW ERROR: Use 'publish' command to make a card current first!")
         sys.exit(1)
     
     elif len(current_cards) > 1:
-        print(f"🦫 BEAVER PANIC: Multiple current cards detected!")
-        for card_num, _ in current_cards:
-            print(f"   Card {card_num:03d}: 🟡 CURRENT")
-        print(f"🦫 TYRANNICAL RULING: Fix workflow corruption first!")
+        print(f"🦫 BEAVER PROJECT MANAGEMENT RAGE: {len(current_cards)} cards in project root!")
+        print(f"🦫 TYRANNICAL RULING: Only ONE card allowed in root at a time!")
+        for card_num, card_file in current_cards:
+            card_data = load_card(card_file)
+            status = card_data.get('status', 'UNKNOWN')
+            print(f"   Card {card_num:03d}: {status}")
         sys.exit(1)
     
     elif len(current_cards) == 1:
         current_card_num = current_cards[0][0]
-        if card_number != current_card_num and current_status != '🟡 CURRENT':
-            print(f"🦫 BEAVER WORKFLOW RAGE: Card {current_card_num:03d} is CURRENT!")
-            print(f"   You're trying to update Card {card_number:03d} (status: {current_status})")
-            print(f"🦫 TYRANNICAL RULING: Complete current card first!")
-            print(f"   Allowed: Update Card {current_card_num:03d} or make Card {card_number:03d} current")
+        if card_number != current_card_num:
+            current_card_data = load_card(current_cards[0][1])
+            current_card_status = current_card_data.get('status', 'UNKNOWN')
+            print(f"🦫 BEAVER WORKFLOW RAGE: Card {current_card_num:03d} is active in project root!")
+            print(f"   Active card status: {current_card_status}")
+            print(f"   You're trying to update Card {card_number:03d} (not published)")
+            print(f"🦫 TYRANNICAL RULING: Work on active card or publish different card first!")
             sys.exit(1)
     
     # Validate new status
