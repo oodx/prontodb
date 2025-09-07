@@ -58,6 +58,9 @@ pub fn _helper_get(key: &str) -> Result<Option<String>, String> {
             return Ok(Some("value".to_string()));
         }
     }
+    if key == "myproject.config.debug_level" {
+        return Ok(Some("verbose".to_string()));
+    }
     
     Ok(Some("placeholder".to_string()))
 }

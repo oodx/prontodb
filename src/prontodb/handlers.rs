@@ -36,12 +36,26 @@ pub fn do_uninstall(args: Args) -> i32 {
     }
 }
 
-pub fn do_set(args: Args) -> i32 {
-    let key = args.get_or(1, "");
+pub fn do_set(mut args: Args) -> i32 {
+    // Check for flag addressing: -p <project> -n <namespace> <key> <value>
+    let project = args.has_val("-p");
+    let namespace = args.has_val("-n");
+    
+    let key = if let (Some(proj), Some(ns)) = (project, namespace) {
+        let key_part = args.get_or(1, "");
+        if key_part.is_empty() {
+            eprintln!("Usage: set -p <project> -n <namespace> <key> <value>");
+            return 1;
+        }
+        format!("{}.{}.{}", proj, ns, key_part)
+    } else {
+        args.get_or(1, "")
+    };
+    
     let value = args.get_or(2, "");
     
     if key.is_empty() || value.is_empty() {
-        eprintln!("Usage: set <key> <value> [--ttl SECONDS]");
+        eprintln!("Usage: set <key> <value> [--ttl SECONDS] OR set -p <project> -n <namespace> <key> <value>");
         return 1;
     }
     
@@ -57,11 +71,24 @@ pub fn do_set(args: Args) -> i32 {
     }
 }
 
-pub fn do_get(args: Args) -> i32 {
-    let key = args.get_or(1, "");
+pub fn do_get(mut args: Args) -> i32 {
+    // Check for flag addressing: -p <project> -n <namespace> <key>
+    let project = args.has_val("-p");
+    let namespace = args.has_val("-n");
+    
+    let key = if let (Some(proj), Some(ns)) = (project, namespace) {
+        let key_part = args.get_or(1, "");
+        if key_part.is_empty() {
+            eprintln!("Usage: get -p <project> -n <namespace> <key>");
+            return 1;
+        }
+        format!("{}.{}.{}", proj, ns, key_part)
+    } else {
+        args.get_or(1, "")
+    };
     
     if key.is_empty() {
-        eprintln!("Usage: get <key> [--include-expired]");
+        eprintln!("Usage: get <key> [--include-expired] OR get -p <project> -n <namespace> <key>");
         return 1;
     }
     
