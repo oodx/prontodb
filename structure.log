@@ -1,0 +1,8 @@
+
+
+prontodb/
+├─ Cargo.toml
+└─ src/
+   ├─ main.rs        # RSB bootstrap / arg parsing / dispatch table
+   ├─ store.rs       # SQLite open+PRAGMA, DDL, KV ops, TTL ops, sys/sec tables
+   └─ stream.rs      # KV-stream parser (meta:*), auth gate, transactional apply
