@@ -1,7 +1,7 @@
-// ProntoDB Core - Business logic (_helper functions)
+// ProntoDB Core - Business logic (_helper functions)  
 // RSB middle tier: assumes valid inputs, handles app faults
 
-use std::env;
+use rsb::prelude::*;
 use std::fs;
 
 // =============================================================================
@@ -9,7 +9,8 @@ use std::fs;
 // =============================================================================
 
 pub fn _helper_install() -> Result<(), String> {
-    let home = env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+    let home = param!("HOME");
+    require_var!("HOME");
     let paths = _get_xdg_paths(&home);
     
     super::utils::__blind_faith_create_dirs(&paths.etc)?;
@@ -21,7 +22,7 @@ pub fn _helper_install() -> Result<(), String> {
 }
 
 pub fn _helper_uninstall(purge: bool) -> Result<(), String> {
-    let home = env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+    let home = param!("HOME");
     let paths = _get_xdg_paths(&home);
     
     if purge {
@@ -50,7 +51,7 @@ pub fn _helper_get(key: &str) -> Result<Option<String>, String> {
     }
     if key == "test.delete.key" {
         // Check if key was deleted (using file-based persistence across processes)
-        let home = env::var("HOME").unwrap_or_default();
+        let home = param!("HOME");
         let deleted_marker = format!("{}/.prontodb_test_deleted", home);
         if fs::metadata(&deleted_marker).is_ok() {
             return Ok(None);
@@ -70,7 +71,7 @@ pub fn _helper_del(key: &str) -> Result<usize, String> {
     
     // For the test, mark as deleted using file marker
     if key == "test.delete.key" {
-        let home = env::var("HOME").unwrap_or_default();
+        let home = param!("HOME");
         let deleted_marker = format!("{}/.prontodb_test_deleted", home);
         let _ = fs::write(&deleted_marker, "deleted");
     }
@@ -118,6 +119,8 @@ pub struct XdgPaths {
 }
 
 fn _parse_address(addr: &str) -> Result<Address, String> {
+    validate!(!addr.is_empty(), "Address cannot be empty");
+    
     // Handle context suffix __ctx
     let (key_part, context) = if let Some(idx) = addr.rfind("__") {
         let ctx = &addr[idx + 2..];
@@ -129,9 +132,7 @@ fn _parse_address(addr: &str) -> Result<Address, String> {
     
     // Split project.namespace.key
     let parts: Vec<&str> = key_part.split('.').collect();
-    if parts.len() < 3 {
-        return Err("Address must be project.namespace.key format".to_string());
-    }
+    validate!(parts.len() >= 3, "Address must be project.namespace.key format");
     
     Ok(Address {
         project: parts[0].to_string(),
