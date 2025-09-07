@@ -19,7 +19,7 @@ rsb = { git = "https://github.com/oodx/rebel", branch = "main" }
 
 # Optional value-layer features
 zstd = { version = "0.13", optional = true }       # compression-zstd
-aes-gcm = { version = "0.10", features = ["aes256"], optional = true }  # encryption
+aes-gcm = { version = "0.10", features = ["aes"], optional = true }  # encryption
 pbkdf2 = { version = "0.12", optional = true }
 sha2 = { version = "0.10", optional = true }
 rand = { version = "0.8", optional = true }
