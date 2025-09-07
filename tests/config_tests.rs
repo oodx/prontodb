@@ -194,3 +194,28 @@ fn test_config_structure_creation() {
     
     unset_var("HOME");
 }
+
+#[test]
+fn test_card_001_fix_config_tests_complex_type_violations() {
+    // GREEN PHASE: Fixed to use RSB-compliant string-first approach
+    // Tests the public do_* functions instead of internal complex types
+    let temp_dir = TempDir::new().unwrap();
+    set_var("HOME", temp_dir.path().to_str().unwrap());
+    
+    // RSB COMPLIANT: Test string-first helper functions instead of Config struct
+    assert_eq!(prontodb::config::_helper_get_namespace_delimiter(), ".");
+    assert_eq!(prontodb::config::_helper_get_busy_timeout_ms(), 5000);
+    assert_eq!(prontodb::config::_helper_is_security_required(), true);
+    
+    // RSB COMPLIANT: Test do_* functions that return string-based exit codes
+    // Instead of testing ConfigError enum directly
+    let result = prontodb::config::do_init_config();
+    assert_eq!(result, 0, "Config initialization should succeed");
+    
+    // RSB COMPLIANT: Test string-based configuration retrieval
+    let config_map = prontodb::config::_helper_get_all_config().unwrap();
+    assert!(config_map.contains_key("namespace_delimiter"));
+    assert_eq!(config_map.get("namespace_delimiter").unwrap(), ".");
+    
+    unset_var("HOME");
+}

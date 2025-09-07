@@ -1,0 +1,16 @@
+acceptance_criteria:
+- Complete Implement core KV commands (set, get, del, keys, scan) with TDD evidence
+card_number: CARD_006
+complexity: 10
+dependencies: []
+feature_name: Implement core KV commands (set, get, del, keys, scan)
+milestone: Core KV Operations
+status: "\U0001F512 LOCKED"
+test_function: test_card_006_implement_core_kv_commands_(set,_get,_del,_keys,_scan)
+tests_required:
+  green_phase: Minimal implementation to pass Implement core KV commands (set, get,
+    del, keys, scan) test
+  red_phase: Failing test for Implement core KV commands (set, get, del, keys, scan)
+  refactor_phase: Improve code quality for Implement core KV commands (set, get, del,
+    keys, scan)
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"
