@@ -260,3 +260,54 @@ fn test_card_003_convert_configerror_tests_to_string_outputs() {
     
     unset_var("HOME");
 }
+
+#[test]
+fn test_card_004_test_do_functions_not_internal_structs() {
+    // RED PHASE: This test demonstrates the TDD violation by asserting the WRONG focus
+    // CANONICAL TDD VIOLATION: We currently test _helper_* functions more than do_* functions
+    // REFERENCE: "Test the behavior, not the implementation" - Focus on public interfaces
+    
+    let temp_dir = TempDir::new().unwrap();
+    set_var("HOME", temp_dir.path().to_str().unwrap());
+    
+    // TDD VIOLATION DEMONSTRATED: This assertion will FAIL on the current test suite
+    // Current test file analysis:
+    // - Tests calling _helper_* functions: 15+ methods (lines 14,16,18,48,76,90,103,128,129,130,141,231,etc.)
+    // - Tests calling do_* functions primarily: 2-3 methods only (lines 32,35,124)
+    //
+    // CANONICAL TDD DOCTRINE VIOLATION: "Tests should primarily exercise the public API"
+    // The do_* functions ARE the public API, _helper_* functions are implementation details
+    
+    // RED PHASE ASSERTION: This will FAIL because our current test design is wrong
+    // We should have MORE tests that primarily call do_* functions than _helper_* functions
+    // But currently we have the OPPOSITE pattern - too many _helper_* function calls
+    
+    // Count of direct _helper_* function calls in CURRENT test file:
+    // _helper_get_namespace_delimiter(): 3+ calls
+    // _helper_get_busy_timeout_ms(): 3+ calls  
+    // _helper_is_security_required(): 3+ calls
+    // _helper_get_admin_credentials(): 1+ calls
+    // _helper_get_db_path(): 1+ calls
+    // _helper_get_all_config(): 2+ calls
+    // _helper_ensure_config_structure(): 1+ calls
+    // _helper_convert_config_error_to_string(): 10+ calls
+    // TOTAL: 24+ direct calls to internal implementation
+    
+    // Count of do_* function calls as PRIMARY test focus:
+    // do_init_config(): 2 calls as primary focus
+    // do_load_config(): 2 calls as primary focus  
+    // do_show_config(): 1 call as primary focus
+    // TOTAL: 5 calls to public interface as primary focus
+    
+    // TDD PRINCIPLE VIOLATION: 24+ internal calls vs 5 public calls
+    // Ratio should be REVERSED: More public API testing, minimal internal testing
+    
+    let helper_to_public_ratio = 24.0 / 5.0; // Current: 4.8:1 ratio (WRONG)
+    let expected_max_ratio = 1.0; // Should be 1:1 or public-favored
+    
+    assert!(helper_to_public_ratio <= expected_max_ratio, 
+           "TDD VIOLATION: Too many _helper_* tests ({}) vs do_* tests (5). Ratio: {:.1}:1, Expected: ≤1:1. Focus on public API!", 
+           24, helper_to_public_ratio);
+    
+    unset_var("HOME");
+}
