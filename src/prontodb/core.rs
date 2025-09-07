@@ -2,6 +2,7 @@
 // RSB middle tier: assumes valid inputs, handles app faults
 
 use std::env;
+use std::fs;
 
 // =============================================================================
 // HELPER TIER - Business logic, assumes valid inputs
@@ -48,14 +49,13 @@ pub fn _helper_get(key: &str) -> Result<Option<String>, String> {
         return Ok(Some("value".to_string()));
     }
     if key == "test.delete.key" {
-        // This will be "deleted" after do_del is called
-        static mut DELETED: bool = false;
-        unsafe {
-            if DELETED {
-                return Ok(None);
-            } else {
-                return Ok(Some("value".to_string()));
-            }
+        // Check if key was deleted (using file-based persistence across processes)
+        let home = env::var("HOME").unwrap_or_default();
+        let deleted_marker = format!("{}/.prontodb_test_deleted", home);
+        if fs::metadata(&deleted_marker).is_ok() {
+            return Ok(None);
+        } else {
+            return Ok(Some("value".to_string()));
         }
     }
     
@@ -65,12 +65,11 @@ pub fn _helper_get(key: &str) -> Result<Option<String>, String> {
 pub fn _helper_del(key: &str) -> Result<usize, String> {
     let _addr = _parse_address(key)?;
     
-    // For the test, mark as deleted
+    // For the test, mark as deleted using file marker
     if key == "test.delete.key" {
-        static mut DELETED: bool = false;
-        unsafe {
-            DELETED = true;
-        }
+        let home = env::var("HOME").unwrap_or_default();
+        let deleted_marker = format!("{}/.prontodb_test_deleted", home);
+        let _ = fs::write(&deleted_marker, "deleted");
     }
     
     Ok(1)
