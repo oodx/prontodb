@@ -203,14 +203,34 @@ pub fn _helper_get_all_config() -> Result<HashMap<String, String>, String> {
 }
 
 /// Convert ConfigError types to string outputs for RSB compliance
-/// GREEN PHASE: Minimal implementation to make test pass
+/// 
+/// This function provides a centralized mechanism for converting various
+/// configuration error scenarios into consistent, user-friendly string messages
+/// following RSB string-first principles.
+/// 
+/// # Arguments
+/// * `error_type` - The type of configuration error (FileNotFound, ParseError, etc.)
+/// * `context` - Additional context about the error (file path, line number, etc.)
+/// 
+/// # Returns
+/// A formatted error message string suitable for user display or logging
+/// 
+/// # RSB Compliance
+/// This function eliminates the need for ConfigError enum types by providing
+/// string-based error handling that integrates with RSB's validation patterns.
 pub fn _helper_convert_config_error_to_string(error_type: &str, context: &str) -> String {
+    // Validate inputs to prevent empty or malformed error messages
+    let error_type = if error_type.is_empty() { "Unknown" } else { error_type };
+    let context = if context.is_empty() { "no context provided" } else { context };
+    
     match error_type {
         "FileNotFound" => format!("Configuration file not found: {}", context),
-        "ParseError" => format!("Configuration parse error: {}", context),
+        "ParseError" => format!("Configuration parse error: {}", context), 
         "ValidationError" => format!("Configuration validation error: {}", context),
         "PermissionError" => format!("Configuration permission denied: {}", context),
-        _ => format!("Unknown configuration error: {}", context),
+        "DirectoryError" => format!("Configuration directory error: {}", context),
+        "FormatError" => format!("Configuration format error: {}", context),
+        _ => format!("Unknown configuration error [{}]: {}", error_type, context),
     }
 }
 

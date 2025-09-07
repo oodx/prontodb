@@ -222,13 +222,12 @@ fn test_card_001_fix_config_tests_complex_type_violations() {
 
 #[test]
 fn test_card_003_convert_configerror_tests_to_string_outputs() {
-    // RED PHASE: Test ConfigError-to-string conversion mechanism that doesn't exist yet
-    // This should fail because _helper_convert_config_error_to_string is not implemented
+    // REFACTOR PHASE: Enhanced ConfigError-to-string conversion testing
+    // Tests comprehensive error conversion scenarios with RSB compliance
     let temp_dir = TempDir::new().unwrap();
     set_var("HOME", temp_dir.path().to_str().unwrap());
     
-    // Test string-based error conversion for different ConfigError types
-    // These should fail initially because the function doesn't exist
+    // Test standard error conversions
     let file_not_found_error = prontodb::config::_helper_convert_config_error_to_string("FileNotFound", "test.conf");
     assert_eq!(file_not_found_error, "Configuration file not found: test.conf");
     
@@ -240,6 +239,24 @@ fn test_card_003_convert_configerror_tests_to_string_outputs() {
     
     let permission_error = prontodb::config::_helper_convert_config_error_to_string("PermissionError", "/etc/protected.conf");
     assert_eq!(permission_error, "Configuration permission denied: /etc/protected.conf");
+    
+    // Test additional error types added during refactor
+    let directory_error = prontodb::config::_helper_convert_config_error_to_string("DirectoryError", "/invalid/path");
+    assert_eq!(directory_error, "Configuration directory error: /invalid/path");
+    
+    let format_error = prontodb::config::_helper_convert_config_error_to_string("FormatError", "malformed TOML");
+    assert_eq!(format_error, "Configuration format error: malformed TOML");
+    
+    // Test edge cases - empty inputs
+    let empty_error_type = prontodb::config::_helper_convert_config_error_to_string("", "some context");
+    assert_eq!(empty_error_type, "Unknown configuration error [Unknown]: some context");
+    
+    let empty_context = prontodb::config::_helper_convert_config_error_to_string("FileNotFound", "");
+    assert_eq!(empty_context, "Configuration file not found: no context provided");
+    
+    // Test unknown error type handling
+    let unknown_error = prontodb::config::_helper_convert_config_error_to_string("CustomError", "custom context");
+    assert_eq!(unknown_error, "Unknown configuration error [CustomError]: custom context");
     
     unset_var("HOME");
 }
