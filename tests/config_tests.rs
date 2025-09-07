@@ -219,3 +219,27 @@ fn test_card_001_fix_config_tests_complex_type_violations() {
     
     unset_var("HOME");
 }
+
+#[test]
+fn test_card_003_convert_configerror_tests_to_string_outputs() {
+    // RED PHASE: Test ConfigError-to-string conversion mechanism that doesn't exist yet
+    // This should fail because _helper_convert_config_error_to_string is not implemented
+    let temp_dir = TempDir::new().unwrap();
+    set_var("HOME", temp_dir.path().to_str().unwrap());
+    
+    // Test string-based error conversion for different ConfigError types
+    // These should fail initially because the function doesn't exist
+    let file_not_found_error = prontodb::config::_helper_convert_config_error_to_string("FileNotFound", "test.conf");
+    assert_eq!(file_not_found_error, "Configuration file not found: test.conf");
+    
+    let parse_error = prontodb::config::_helper_convert_config_error_to_string("ParseError", "invalid syntax at line 5");
+    assert_eq!(parse_error, "Configuration parse error: invalid syntax at line 5");
+    
+    let validation_error = prontodb::config::_helper_convert_config_error_to_string("ValidationError", "invalid timeout value");
+    assert_eq!(validation_error, "Configuration validation error: invalid timeout value");
+    
+    let permission_error = prontodb::config::_helper_convert_config_error_to_string("PermissionError", "/etc/protected.conf");
+    assert_eq!(permission_error, "Configuration permission denied: /etc/protected.conf");
+    
+    unset_var("HOME");
+}

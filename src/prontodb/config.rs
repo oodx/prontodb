@@ -202,6 +202,18 @@ pub fn _helper_get_all_config() -> Result<HashMap<String, String>, String> {
     Ok(config)
 }
 
+/// Convert ConfigError types to string outputs for RSB compliance
+/// GREEN PHASE: Minimal implementation to make test pass
+pub fn _helper_convert_config_error_to_string(error_type: &str, context: &str) -> String {
+    match error_type {
+        "FileNotFound" => format!("Configuration file not found: {}", context),
+        "ParseError" => format!("Configuration parse error: {}", context),
+        "ValidationError" => format!("Configuration validation error: {}", context),
+        "PermissionError" => format!("Configuration permission denied: {}", context),
+        _ => format!("Unknown configuration error: {}", context),
+    }
+}
+
 /// Create default configuration file
 pub fn _helper_create_default_config(config_file: &str) -> Result<(), String> {
     let default_config = r#"# ProntoDB Configuration
