@@ -1,6 +1,5 @@
 // ProntoDB Utils - System operations (__blind_faith functions)
 // RSB bottom tier: minimal error handling, system fault errors only
-
 use std::fs;
 
 // =============================================================================

@@ -4,8 +4,10 @@
 pub mod core;
 pub mod utils;
 pub mod handlers;
+pub mod config;
 
 // Re-export main functions for clean interface
 pub use core::*;
 pub use utils::*;
 pub use handlers::*;
+pub use config::*;

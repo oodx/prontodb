@@ -1,37 +1,31 @@
 // Integration tests based on TEST-SPEC.md
 // Following TDD protocol: RED -> GREEN -> REFACTOR -> COMMIT
 
-use std::env;
-use std::fs;
-use std::process::{Command, Stdio};
-use std::io::Write;
+use rsb::prelude::*;
 
 fn bin() -> String {
-    env::var("PRONTODB_BIN").unwrap_or_else(|_| "./target/debug/prontodb".to_string())
+    param!("PRONTODB_BIN", default: "./target/debug/prontodb")
 }
 
 fn run(home: &str, args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(bin())
-        .args(args)
-        .env("HOME", home)
-        .output()
-        .unwrap();
+    // RSB Pattern: Use shell operations with environment variable setting
+    let cmd = format!("HOME=\"{}\" {} {}", home, bin(), args.join(" "));
+    let result = run_cmd_with_status(&cmd);
     
     (
-        output.status.code().unwrap_or(-1),
-        String::from_utf8_lossy(&output.stdout).to_string(),
-        String::from_utf8_lossy(&output.stderr).to_string()
+        result.status,
+        result.output,
+        result.error
     )
 }
 
 fn test_home(tag: &str) -> String {
-    let home = format!(
-        "{}/.prontodb_test_{}_{}",
-        std::env::temp_dir().display(),
-        tag,
-        std::process::id()
-    );
-    fs::create_dir_all(&home).unwrap();
+    // RSB Pattern: Use shell operations for temp directory and process ID
+    let temp_dir = run_cmd("mktemp -d").trim().to_string();
+    let pid = run_cmd("echo $$").trim().to_string();
+    let home = format!("{}/.prontodb_test_{}_{}", temp_dir, tag, pid);
+    
+    mkdir_p(&home);
     home
 }
 
