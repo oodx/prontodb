@@ -1,19 +1,15 @@
-# 🦫 FEATURE WORK CARD
-card_number: "001"
-milestone: "TDD Foundation"
-feature_name: "Fix config_tests.rs complex type violations"
-complexity: 7
-status: "🔴 RED"
-tests_required:
-  red_phase: "test_card_001_fix_config_tests_complex_type_violations fails with complex type usage error"
-  green_phase: "test_card_001_fix_config_tests_complex_type_violations passes with string-first function-based testing"
-  refactor_phase: "test_card_001_fix_config_tests_complex_type_violations passes with clean RSB-compliant code"
-required_test_name: "test_card_001_fix_config_tests_complex_type_violations"
-dependencies: []
 acceptance_criteria:
-  - "Convert Config struct tests to string functions"
-  - "Convert ConfigError tests to string outputs" 
-  - "Test `do_*` functions, not internal structs"
-  - "Ensure RSB compliance in test patterns"
-  - "Pass TDD RED-GREEN-REFACTOR cycle verification"
-treasure_vault: "SECURED_BY_BEAVER_🦫"
+- Complete Fix config_tests.rs complex type violations with TDD evidence
+card_number: '001'
+complexity: 8
+dependencies: []
+feature_name: Fix config_tests.rs complex type violations
+milestone: TDD Foundation
+status: "\U0001F7E1 CURRENT"
+test_function: test_card_001_fix_config_tests.rs_complex_type_violations
+tests_required:
+  green_phase: Minimal implementation to pass Fix config_tests.rs complex type violations
+    test
+  red_phase: Failing test for Fix config_tests.rs complex type violations
+  refactor_phase: Improve code quality for Fix config_tests.rs complex type violations
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"
