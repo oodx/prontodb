@@ -96,12 +96,17 @@ milestones = [
 ]
 
 def generate_work_card(milestone, card_number, task):
+    # Create test function name following exact pattern: test_card_XXX_[feature]
+    feature_slug = task.lower().replace(' ', '_').replace('/', '_').replace('`', '').replace('-', '_')
+    test_function_name = f"test_card_{card_number:03d}_{feature_slug}"
+    
     card = {
         "card_number": f"CARD_{card_number:03d}",
         "milestone": milestone["name"],
         "feature_name": task,
+        "test_function": test_function_name,
         "complexity": min(max(len(task) // 5, 1), 10),
-        "status": "locked",
+        "status": "🔒 LOCKED",
         "tests_required": {
             "red_phase": f"Failing test for {task}",
             "green_phase": f"Minimal implementation to pass {task} test",

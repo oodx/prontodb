@@ -3,13 +3,21 @@
 
 SETUP:
 1. Check project root for available work card (CARD_XXX.yml)
-2. Read card for feature requirements and test name
+2. Read card for feature requirements and exact test_function name
+3. Ensure working on correct milestone branch
+
+BRANCH MANAGEMENT:
+------------------
+- Each MILESTONE gets its own branch: milestone-N-[name]
+- Example: milestone-1-tdd_foundation, milestone-2-core_kv_operations
+- NO commits to main until milestone complete
+- Create branch before starting first card in milestone
 
 TDD CYCLE:
 -----------
 RED PHASE:
-1. Write test using EXACT name from card: test_card_XXX_[feature]
-2. Make test FAIL initially (write before implementation)
+1. Write test using EXACT name from card.test_function
+2. Make test FAIL initially (write before implementation)  
 3. Tell Teddy: "RED phase complete for CARD_XXX"
 4. Teddy runs test himself and updates card to 🔴 RED
 5. Commit: "TDD-RED: CARD_001 - Add failing test for [feature]"
@@ -18,24 +26,41 @@ GREEN PHASE:
 1. Write MINIMAL code to make test pass
 2. Tell Teddy: "GREEN phase complete for CARD_XXX"
 3. Teddy runs test himself and updates card to 🟢 GREEN
-4. Commit: "TDD-GREEN: CARD_001 - Implement [feature]"
+4. GIT CLEANLINESS REQUIRED: All changes must be committed before GREEN approval
+5. Commit: "TDD-GREEN: CARD_001 - Implement [feature]"
 
 REFACTOR PHASE:
 1. Clean/optimize code while keeping test green
 2. Tell Teddy: "REFACTOR phase complete for CARD_XXX"
 3. Teddy runs test himself and updates card to 🔵 REFACTOR
-4. Commit: "TDD-REFACTOR: CARD_001 - Clean up [feature]"
+4. GIT CLEANLINESS REQUIRED: All changes must be committed before REFACTOR approval
+5. Commit: "TDD-REFACTOR: CARD_001 - Clean up [feature]"
 
 CARD COMPLETION:
-1. Teddy verifies all phases and marks card ✅ APPROVED
-2. Teddy releases next card automatically
-3. NO DEVELOPER EVIDENCE REQUIRED - Teddy tests everything himself!
+1. Teddy verifies git status is clean (no uncommitted changes)
+2. Teddy marks card ✅ APPROVED only if git is clean
+3. Teddy archives completed card in dam and publishes next card
+4. NO DEVELOPER EVIDENCE REQUIRED - Teddy tests everything himself!
+
+TEDDY COMMUNICATION:
+- SUCCESS: New card appears in project root, old card archived
+- FAILURE: CARD_XXX_RESULT.txt appears with exact error details
+- Check result file for specific fix instructions if verification fails
+- PROTOCOL VERSION: Ask Teddy to include 🔧⚡ symbol to confirm enhanced protocols active
+
+MILESTONE COMPLETION:
+1. All cards in milestone must be ✅ APPROVED
+2. Git must be completely clean
+3. Create PR: milestone branch → main
+4. NO direct commits to main!
 
 RULES:
 - ONE card active at a time
-- Test name MUST match card number
+- Test name MUST exactly match card.test_function field
 - NO implementation before failing test
 - NO next card until current card verified
+- NO GREEN/REFACTOR approval with uncommitted changes
+- NO milestone completion with dirty git status
 - Teddy's verification is FINAL
 
 VIOLATIONS = NO MORE CARDS! 🦫
