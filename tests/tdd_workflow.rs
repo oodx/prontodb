@@ -22,14 +22,23 @@ mod tdd_workflow_tests {
 
     #[test]
     fn test_card_005_fix_integration_rs_rsb_pattern_violations() {
-        // RED PHASE: This test will fail initially, exposing RSB pattern violations
-        let violations = analyze_rsb_integration_violations();
+        // REFACTOR PHASE: Enhanced test with comprehensive validation
         
-        // Test should fail because we expect violations to be found and fixed
-        // Initially this will show the violations, then we fix them
+        // Comprehensive violation analysis
+        let violations = analyze_rsb_integration_violations();
         assert!(violations.is_empty(), "RSB pattern violations should be resolved: {:?}", violations);
         
-        // Additional verification that RSB integration is working properly
-        assert!(validate_rsb_integration_working(), "RSB integration should be functional after fixes");
+        // End-to-end RSB integration validation
+        assert!(validate_rsb_integration_working(), "RSB integration should be functional after comprehensive fixes");
+        
+        // REFACTOR ENHANCEMENT: Test individual components
+        // Test that we can analyze violations without finding any
+        let re_analysis = analyze_rsb_integration_violations();
+        assert_eq!(re_analysis.len(), 0, "Re-analysis should confirm no violations remain");
+        
+        // Test RSB integration stability
+        for _ in 0..5 {
+            assert!(validate_rsb_integration_working(), "RSB integration should be consistently stable");
+        }
     }
 }
