@@ -2,7 +2,7 @@
 // This test validates that the TDD infrastructure is properly set up
 
 // Import from the crate, not the module
-use prontodb::{validate_tdd_infrastructure, analyze_rsb_integration_violations, validate_rsb_integration_working};
+use prontodb::{validate_tdd_infrastructure, analyze_rsb_integration_violations, validate_rsb_integration_working, analyze_std_env_usage_violations, validate_rsb_env_patterns_working};
 
 #[cfg(test)]
 mod tdd_workflow_tests {
@@ -40,5 +40,20 @@ mod tdd_workflow_tests {
         for _ in 0..5 {
             assert!(validate_rsb_integration_working(), "RSB integration should be consistently stable");
         }
+    }
+
+    #[test]
+    fn test_card_006_replace_std_env_with_rsb_patterns() {
+        // RED PHASE: This test should FAIL until std::env is replaced with RSB patterns
+        // Testing that environment access follows RSB string-first principles
+        
+        // Check that critical files no longer use std::env directly
+        let violations = analyze_std_env_usage_violations();
+        
+        // RED PHASE: This should fail until we replace std::env with RSB patterns
+        assert!(violations.is_empty(), "std::env usage violations found - must use RSB patterns instead: {:?}", violations);
+        
+        // Validate RSB environment access patterns are working
+        assert!(validate_rsb_env_patterns_working(), "RSB environment access patterns should be functional");
     }
 }
