@@ -1,0 +1,24 @@
+# 🦫 FEATURE WORK CARD
+card_number: "001"
+milestone: "milestone_001"
+feature_name: "Fix RSB Parameter Expansion Test Environment Setup"
+complexity: 3
+status: "🟡 CURRENT"
+tests_required:
+  red_phase: "test_rsb_param_expansion fails with 'HOME variable should not be empty' - demonstrates environment setup issue"
+  green_phase: "Fix environment variable setup to ensure HOME is properly initialized during test execution"
+  refactor_phase: "Clean up test environment initialization for consistent RSB parameter expansion testing"
+dependencies: []
+acceptance_criteria:
+  - "test_rsb_param_expansion passes consistently"
+  - "All RSB integration tests pass without environment-related failures"
+  - "Test environment setup is robust and reliable"
+  - "RSB parameter expansion works correctly in test context"
+treasure_vault: "SECURED_BY_BEAVER_🦫"
+
+# BEAVER ENFORCEMENT PROTOCOL:
+# Phase 1 (RED): Verify failing test - run `cargo test test_rsb_param_expansion` to confirm failure
+# Phase 2 (GREEN): Fix test environment setup with minimal viable code
+# Phase 3 (REFACTOR): Improve test robustness and environment handling
+# Commit Format: "TDD [PHASE]: [description] - CARD_001"
+# NO SHORTCUTS ALLOWED - Full beaver verification at each phase!

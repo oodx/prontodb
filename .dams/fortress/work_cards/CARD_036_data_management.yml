@@ -1,0 +1,14 @@
+acceptance_criteria:
+- Complete Create corruption recovery procedures with TDD evidence
+card_number: CARD_036
+complexity: 7
+dependencies: []
+feature_name: Create corruption recovery procedures
+milestone: Data Management
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Create corruption recovery procedures
+    test
+  red_phase: Failing test for Create corruption recovery procedures
+  refactor_phase: Improve code quality for Create corruption recovery procedures
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

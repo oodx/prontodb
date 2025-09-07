@@ -1,0 +1,14 @@
+acceptance_criteria:
+- Complete Delegate encryption to system tools with TDD evidence
+card_number: CARD_026
+complexity: 7
+dependencies: []
+feature_name: Delegate encryption to system tools
+milestone: Security & Auth
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Delegate encryption to system tools
+    test
+  red_phase: Failing test for Delegate encryption to system tools
+  refactor_phase: Improve code quality for Delegate encryption to system tools
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

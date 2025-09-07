@@ -1,0 +1,13 @@
+acceptance_criteria:
+- Complete Create TDD templates with TDD evidence
+card_number: CARD_011
+complexity: 4
+dependencies: []
+feature_name: Create TDD templates
+milestone: TDD Foundation
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Create TDD templates test
+  red_phase: Failing test for Create TDD templates
+  refactor_phase: Improve code quality for Create TDD templates
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

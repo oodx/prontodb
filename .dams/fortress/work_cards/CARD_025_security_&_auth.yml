@@ -1,0 +1,14 @@
+acceptance_criteria:
+- Complete Design configurable security policies with TDD evidence
+card_number: CARD_025
+complexity: 7
+dependencies: []
+feature_name: Design configurable security policies
+milestone: Security & Auth
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Design configurable security policies
+    test
+  red_phase: Failing test for Design configurable security policies
+  refactor_phase: Improve code quality for Design configurable security policies
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

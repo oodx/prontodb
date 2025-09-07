@@ -1,0 +1,13 @@
+acceptance_criteria:
+- Complete Design eviction policies with TDD evidence
+card_number: CARD_017
+complexity: 4
+dependencies: []
+feature_name: Design eviction policies
+milestone: TTL & Cache System
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Design eviction policies test
+  red_phase: Failing test for Design eviction policies
+  refactor_phase: Improve code quality for Design eviction policies
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

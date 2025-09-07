@@ -1,0 +1,14 @@
+acceptance_criteria:
+- Complete Implement lazy expiry on read/write operations with TDD evidence
+card_number: CARD_014
+complexity: 9
+dependencies: []
+feature_name: Implement lazy expiry on read/write operations
+milestone: TTL & Cache System
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Implement lazy expiry on read/write
+    operations test
+  red_phase: Failing test for Implement lazy expiry on read/write operations
+  refactor_phase: Improve code quality for Implement lazy expiry on read/write operations
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

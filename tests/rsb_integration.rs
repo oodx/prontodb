@@ -34,8 +34,8 @@ fn test_rsb_stream_processing() {
 }
 
 #[test]
-fn test_rsb_param_expansion() {
-    // RED: Test that param!() macro works
+fn test_card_001_rsb_param_expansion() {
+    // RED: Test that param!() macro works - CARD_001
     use rsb::prelude::*;
     
     // This should fail until param!() macro is implemented

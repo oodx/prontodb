@@ -1,0 +1,14 @@
+acceptance_criteria:
+- Complete Test `do_*` functions, not internal structs with TDD evidence
+card_number: CARD_004
+complexity: 8
+dependencies: []
+feature_name: Test `do_*` functions, not internal structs
+milestone: TDD Foundation
+status: "🔒 LOCKED"
+tests_required:
+  green_phase: Minimal implementation to pass Test `do_*` functions, not internal
+    structs test
+  red_phase: Failing test for Test `do_*` functions, not internal structs
+  refactor_phase: Improve code quality for Test `do_*` functions, not internal structs
+treasure_vault: "SECURED_BY_BEAVER_\U0001F9AB"

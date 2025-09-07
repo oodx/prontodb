@@ -11,8 +11,7 @@ use std::collections::HashMap;
 
 /// Initialize configuration system with defaults
 pub fn do_init_config() -> i32 {
-    validate_config_environment();
-    
+    // Validation is performed within _helper_ensure_config_structure
     match _helper_ensure_config_structure() {
         Ok(_) => {
             okay!("Configuration system initialized");
@@ -171,8 +170,20 @@ pub fn _helper_get_namespace_delimiter() -> String {
 
 /// Get SQLite busy timeout in milliseconds
 pub fn _helper_get_busy_timeout_ms() -> u32 {
-    let timeout_str = param!("PRONTO_BUSY_TIMEOUT_MS", default: "5000");
-    timeout_str.parse::<u32>().unwrap_or(5000)
+    // Environment override (highest precedence)
+    let env_timeout = param!("PRONTO_BUSY_TIMEOUT_MS", default: "");
+    if !env_timeout.is_empty() {
+        return env_timeout.parse::<u32>().unwrap_or(5000);
+    }
+    
+    // Configuration file value
+    let config_timeout = param!("PRONTO_CONFIG_BUSY_TIMEOUT_MS", default: "");
+    if !config_timeout.is_empty() {
+        return config_timeout.parse::<u32>().unwrap_or(5000);
+    }
+    
+    // Default value
+    5000
 }
 
 /// Get all configuration as map
