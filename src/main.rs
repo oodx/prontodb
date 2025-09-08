@@ -6,11 +6,12 @@ mod addressing;
 mod storage;
 mod xdg;
 
-use std::env;
+// Prefer RSB's args! macro for ergonomic argument collection
+use rsb::args;
 
 fn main() {
-    // Get command line arguments
-    let args: Vec<String> = env::args().collect();
+    // Get command line arguments via RSB macro (string-first)
+    let args: Vec<String> = args!();
     
     // Dispatch to command handler
     let exit_code = dispatcher::dispatch(args);
