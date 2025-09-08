@@ -10,14 +10,13 @@ repository = "https://github.com/oodx/prontodb"
 anyhow = "1"
 base64 = "0.22"
 directories = "6"
-rusqlite = { version = "0.32" }                    # default: link to system SQLite
-rsb = { git = "https://github.com/oodx/rebel", branch = "main" }
+rusqlite = { version = "0.37" }                    # default: link to system SQLite
+rsb = { path = "../rsb" }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 tempfile = "3"
 
-# RSB framework/macros (using your repo URL; assumes the RSB crate(s) are exported from that workspace)
-#rsb = { git = "https://github.com/oodx/rebel", branch = "main" }
+
 
 # Optional value-layer features
 zstd = { version = "0.13", optional = true }       # compression-zstd
