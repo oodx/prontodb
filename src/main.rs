@@ -11,7 +11,7 @@ mod api;
 use rsb::prelude::*;
 
 // Import RSB command handlers
-use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin};
+use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help};
 
 // RSB lifecycle command handlers with proper naming convention
 fn do_install(_args: rsb::args::Args) -> i32 {
@@ -59,7 +59,8 @@ fn main() {
         "namespaces" => do_namespaces,
         "nss" => do_nss,
         "stream" => do_stream,
-        "admin" => do_admin
+        "admin" => do_admin,
+        "help" => do_help
     });
     // No manual exit - RSB dispatch! handles it
 }

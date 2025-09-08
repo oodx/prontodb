@@ -11,9 +11,10 @@ ProntoDB provides a lightweight, namespaced key-value database with time-to-live
 ## 🚀 Key Features
 
 - **🏃 Single Binary**: No external dependencies, just one executable
-- **📁 Namespaced Storage**: Organize data by project and namespace (`project.namespace.key`)
+- **📍 Dot Addressing**: Primary `project.namespace.key` syntax for intuitive data organization
+- **📁 Namespaced Storage**: Hierarchical organization with automatic project/namespace creation
 - **⏰ TTL Support**: Create time-to-live namespaces for caching with automatic expiry
-- **🔀 Multiple Addressing**: Use flags (`-p/-n`), full paths, or context syntax (`key__context`)
+- **🔀 Flexible Addressing**: Dot notation (primary), flags (`-p/-n`), and context syntax (`key__context`)
 - **📂 XDG Compliance**: Follows XDG Base Directory specification for storage
 - **🧪 RSB Integration**: Built with Rebel String-Biased architecture patterns
 - **⚡ SQLite Backend**: Fast, reliable storage with WAL journaling mode
@@ -60,23 +61,36 @@ prontodb help        # Show all available commands
 
 ## 🎯 Quick Start
 
-### Basic Operations
+### Dot Addressing (Primary Method)
+
+ProntoDB uses **dot addressing** as the primary way to specify keys. This is the recommended approach:
 
 ```bash
-# Store a value using flags
-prontodb -p myapp -n config set debug true
-prontodb -p myapp -n config get debug
-
-# Store a value using full path addressing
+# Store values using dot addressing (project.namespace.key)
 prontodb set myapp.config.environment "production"
-prontodb get myapp.config.environment
+prontodb set myapp.config.debug true
+prontodb set myapp.secrets.api_key "secret123"
 
-# Delete a value
+# Retrieve values
+prontodb get myapp.config.environment
+prontodb get myapp.config.debug
+
+# Delete values  
 prontodb del myapp.config.debug
 
 # Check if key exists (exit code 2 = not found)
 prontodb get myapp.config.nonexistent
 echo $?  # Will be 2
+```
+
+### Flag Addressing (Alternative Method)
+
+You can also use flags when needed:
+
+```bash
+# Equivalent operations using flags
+prontodb set -p myapp -n config environment "production"
+prontodb get -p myapp -n config environment
 ```
 
 ### Context Addressing
