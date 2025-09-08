@@ -94,6 +94,12 @@ impl CommandContext {
 
 // Main dispatcher function
 pub fn dispatch(args: Vec<String>) -> i32 {
+    // Handle version early (before parsing context)
+    if args.len() == 2 && (args[1] == "--version" || args[1] == "-v" || args[1] == "version") {
+        print_version();
+        return EXIT_OK;
+    }
+
     let context = match CommandContext::from_args(args) {
         Ok(ctx) => ctx,
         Err(e) => {
@@ -138,6 +144,12 @@ pub fn dispatch(args: Vec<String>) -> i32 {
         "backup" => {
             eprintln!("Backup not implemented in MVP");
             EXIT_ERROR
+        }
+
+        // Version
+        "--version" | "-v" | "version" => {
+            print_version();
+            EXIT_OK
         }
 
         // Help
@@ -399,6 +411,10 @@ fn handle_admin(ctx: CommandContext) -> i32 {
             EXIT_ERROR
         }
     }
+}
+
+fn print_version() {
+    println!("prontodb {}", env!("CARGO_PKG_VERSION"));
 }
 
 fn print_help() {
