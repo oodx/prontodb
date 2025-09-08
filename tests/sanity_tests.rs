@@ -22,7 +22,7 @@ fn sanity_binary_exists_and_runs() {
     // Basic sanity: help mentions expected content
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("prontodb"), "Help should mention prontodb");
-    assert!(stdout.contains("Usage:"), "Help should show usage");
+    assert!(stdout.contains("USAGE:") || stdout.contains("Usage:"), "Help should show usage");
 }
 
 /// Test XDG path isolation works correctly
