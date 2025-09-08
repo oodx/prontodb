@@ -1,0 +1,48 @@
+KNOWLEDGE TRANSFER PROTOCOL FOR AGENTS
+======================================
+
+PURPOSE: When agents forget tooling or need documentation of complex patterns
+
+PROBLEM: 
+- Agents sometimes forget how to use specific tools
+- XML/HTML tags in examples auto-execute instead of being documented
+- Need persistent reference files for complex procedures
+
+SOLUTION: HTML Entity Escape Protocol
+
+STEPS:
+1. Create empty file first
+2. Add content in chunks using Edit tool
+3. Escape XML/HTML tags using entities:
+   - &lt; instead of <
+   - &gt; instead of >
+   - &amp; instead of &
+
+EXAMPLE WORKFLOW:
+```
+Step 1: Create empty file
+Write tool with empty content
+
+Step 2: Add safe content first  
+Edit tool with headers, descriptions, non-executable text
+
+Step 3: Add escaped code examples
+Replace < with &lt;
+Replace > with &gt;
+This prevents auto-execution of tool calls
+
+Step 4: Complete documentation
+Add remaining context, notes, warnings
+```
+
+WHEN TO USE:
+- Tool usage patterns that agents forget
+- Complex multi-step procedures
+- Any documentation containing XML/HTML tags
+- Reference materials for future sessions
+
+BENEFITS:
+- Prevents accidental tool execution during documentation
+- Creates persistent knowledge base
+- Enables knowledge transfer between sessions
+- Provides clear examples without side effects

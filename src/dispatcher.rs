@@ -3,9 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::addressing::{parse_address, Address};
-use crate::storage::Storage;
-use crate::xdg::XdgPaths;
+use crate::api;
 
 // Exit codes per TEST-SPEC
 pub const EXIT_OK: i32 = 0;
@@ -165,71 +163,18 @@ fn handle_set(ctx: CommandContext) -> i32 {
         return EXIT_ERROR;
     }
 
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
     let key_or_path = &ctx.args[0];
     let value = &ctx.args[1];
-
-    // Parse address: if it contains delimiter (dot/piped variant), treat as full path.
-    // Otherwise use -p/-n + key, preserving optional __context suffix.
-    let addr = if key_or_path.contains(&ctx.ns_delim) {
-        match Address::parse(key_or_path, &ctx.ns_delim) {
-            Ok(a) => a,
-            Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
-        }
-    } else {
-        // extract optional __context from key
-        let (key, context) = if let Some(idx) = key_or_path.rfind("__") {
-            let k = &key_or_path[..idx];
-            let ctxs = &key_or_path[idx+2..];
-            (k.to_string(), if ctxs.is_empty() { None } else { Some(ctxs.to_string()) })
-        } else {
-            (key_or_path.to_string(), None)
-        };
-        Address::from_parts(ctx.project.clone(), ctx.namespace.clone(), key, context)
-    };
-
-    // Validate key against active delimiter
-    if let Err(e) = addr.validate_key(&ctx.ns_delim) {
-        eprintln!("{}", e);
-        return EXIT_ERROR;
-    }
-
-    // TTL handling
     let ttl_flag = ctx.flags.get("ttl").and_then(|s| s.parse::<u64>().ok());
-    let ns_default_ttl = match storage.get_namespace_ttl(&addr.project, &addr.namespace) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Failed to query namespace TTL: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
-    let effective_ttl = match (ns_default_ttl, ttl_flag) {
-        (Some(_default), Some(ttl)) => Some(ttl),              // explicit ttl in TTL ns
-        (Some(default), None) => Some(default),                 // default ttl for TTL ns
-        (None, Some(_)) => {
-            eprintln!("TTL not allowed: namespace is not TTL-enabled");
-            return EXIT_ERROR;
-        }
-        (None, None) => None,                                  // no ttl in standard ns
-    };
-
-    if let Err(e) = storage.set(&addr, value, effective_ttl) {
-        eprintln!("Failed to set value: {}", e);
+    if let Err(e) = api::set_value(
+        ctx.project.as_deref(),
+        ctx.namespace.as_deref(),
+        key_or_path,
+        value,
+        &ctx.ns_delim,
+        ttl_flag,
+    ) {
+        eprintln!("{}", e);
         return EXIT_ERROR;
     }
     EXIT_OK
@@ -241,44 +186,18 @@ fn handle_get(ctx: CommandContext) -> i32 {
         return EXIT_ERROR;
     }
 
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
     let key_or_path = &ctx.args[0];
-    let addr = if key_or_path.contains(&ctx.ns_delim) {
-        match Address::parse(key_or_path, &ctx.ns_delim) {
-            Ok(a) => a,
-            Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
-        }
-    } else {
-        let (key, context) = if let Some(idx) = key_or_path.rfind("__") {
-            let k = &key_or_path[..idx];
-            let ctxs = &key_or_path[idx+2..];
-            (k.to_string(), if ctxs.is_empty() { None } else { Some(ctxs.to_string()) })
-        } else { (key_or_path.to_string(), None) };
-        Address::from_parts(ctx.project.clone(), ctx.namespace.clone(), key, context)
-    };
-
-    match storage.get(&addr) {
+    match api::get_value(
+        ctx.project.as_deref(),
+        ctx.namespace.as_deref(),
+        key_or_path,
+        &ctx.ns_delim,
+    ) {
         Ok(Some(val)) => {
             println!("{}", val);
             EXIT_OK
         }
-        Ok(None) => {
-            // MISS (not found or expired and removed)
-            EXIT_MISS
-        }
+        Ok(None) => EXIT_MISS,
         Err(e) => {
             eprintln!("Failed to get value: {}", e);
             EXIT_ERROR
@@ -292,36 +211,13 @@ fn handle_del(ctx: CommandContext) -> i32 {
         return EXIT_ERROR;
     }
 
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
     let key_or_path = &ctx.args[0];
-    let addr = if key_or_path.contains(&ctx.ns_delim) {
-        match Address::parse(key_or_path, &ctx.ns_delim) {
-            Ok(a) => a,
-            Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
-        }
-    } else {
-        let (key, context) = if let Some(idx) = key_or_path.rfind("__") {
-            let k = &key_or_path[..idx];
-            let ctxs = &key_or_path[idx+2..];
-            (k.to_string(), if ctxs.is_empty() { None } else { Some(ctxs.to_string()) })
-        } else { (key_or_path.to_string(), None) };
-        Address::from_parts(ctx.project.clone(), ctx.namespace.clone(), key, context)
-    };
-
-    if let Err(e) = storage.delete(&addr) {
+    if let Err(e) = api::delete_value(
+        ctx.project.as_deref(),
+        ctx.namespace.as_deref(),
+        key_or_path,
+        &ctx.ns_delim,
+    ) {
         eprintln!("Failed to delete: {}", e);
         return EXIT_ERROR;
     }
@@ -346,21 +242,7 @@ fn handle_keys(ctx: CommandContext) -> i32 {
     };
     let prefix = ctx.args.get(0).map(|s| s.as_str());
 
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
-    match storage.list_keys(project, namespace, prefix) {
+    match api::list_keys(project, namespace, prefix) {
         Ok(keys) => {
             for k in keys {
                 println!("{}", k);
@@ -392,21 +274,7 @@ fn handle_scan(ctx: CommandContext) -> i32 {
     };
     let prefix = ctx.args.get(0).map(|s| s.as_str());
 
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-
-    match storage.scan(project, namespace, prefix) {
+    match api::scan_pairs(project, namespace, prefix) {
         Ok(pairs) => {
             for (k, v) in pairs {
                 println!("{}={}", k, v);
@@ -430,20 +298,6 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
         eprintln!("Usage: create-cache <project.namespace> timeout=SECONDS");
         return EXIT_ERROR;
     }
-
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
 
     // Parse namespace path (project.namespace)
     let ns_path = &ctx.args[0];
@@ -480,7 +334,7 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
         }
     };
 
-    match storage.create_ttl_namespace(project, namespace, timeout) {
+    match api::create_ttl_namespace(project, namespace, timeout) {
         Ok(()) => EXIT_OK,
         Err(e) => {
             eprintln!("Failed to create TTL namespace: {}", e);
@@ -490,20 +344,7 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
 }
 
 fn handle_projects(_ctx: CommandContext) -> i32 {
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to open db: {}", e);
-            return EXIT_ERROR;
-        }
-    };
-    match storage.list_projects() {
+    match api::projects() {
         Ok(list) => {
             for p in list { println!("{}", p); }
             EXIT_OK
@@ -520,17 +361,7 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
             return EXIT_ERROR;
         }
     };
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => { eprintln!("Failed to open db: {}", e); return EXIT_ERROR; }
-    };
-    match storage.list_namespaces(project) {
+    match api::namespaces(project) {
         Ok(list) => { for n in list { println!("{}", n); } EXIT_OK }
         Err(e) => { eprintln!("{}", e); EXIT_ERROR }
     }
@@ -538,19 +369,9 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
 
 fn handle_nss(ctx: CommandContext) -> i32 {
     // Aggregate namespaces across projects
-    let paths = XdgPaths::new();
-    if let Err(e) = paths.ensure_dirs() {
-        eprintln!("Failed to ensure XDG dirs: {}", e);
-        return EXIT_ERROR;
-    }
-    let db_path = paths.get_db_path();
-    let storage = match Storage::open(&db_path) {
-        Ok(s) => s,
-        Err(e) => { eprintln!("Failed to open db: {}", e); return EXIT_ERROR; }
-    };
-    let projects = match storage.list_projects() { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
+    let projects = match api::projects() { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
     for p in projects {
-        match storage.list_namespaces(&p) {
+        match api::namespaces(&p) {
             Ok(list) => { for n in list { println!("{}{}{}", p, ctx.ns_delim, n); } }
             Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
         }

@@ -1,0 +1,172 @@
+ProntoDB Success Criteria & Testing Approach
+============================================
+Date: 2025-09-08
+Target: Success criteria and testing strategy from PRD.md, ROADMAP.md, TASKS.md
+Created by: China the Summary Chicken 🐔
+
+MVP SUCCESS CRITERIA
+--------------------
+
+Core Functionality Requirements:
+✓ Core CRUD operations (set/get/del/keys/scan) fully functional
+✓ Discovery commands (projects/namespaces) working correctly  
+✓ TTL namespace creation (admin create-cache) implemented
+✓ TTL rule enforcement working as specified
+✓ All operations pass integration tests in isolated environment
+✓ Correct exit codes for all scenarios (0=success, 2=miss/expired)
+✓ Clear, actionable error messages for all failure modes
+
+Quality Gates:
+- Deterministic behavior across all operations
+- Small surface area maintained (no feature creep)
+- Clean CLI UX with intuitive command patterns
+- Proper separation: stdout=data, stderr=status
+- XDG compliance for all file operations
+
+TESTING APPROACH & STRATEGY
+---------------------------
+
+Integration Test Framework:
+- Story Point: M=3 (significant infrastructure work)
+- Isolated XDG environment setup for test isolation
+- Temporary database files to prevent test interference
+- CI-friendly test harness design
+- Full command workflow coverage
+
+Test Categories:
+
+1. Core CRUD Testing:
+   - set command: value storage, TTL handling, validation
+   - get command: value retrieval, MISS conditions, expiry
+   - del command: key deletion, non-existent key handling
+   - Prefix filtering for keys/scan commands
+   - Exit code verification for all scenarios
+
+2. Discovery Testing:
+   - projects command: distinct project enumeration
+   - namespaces -p <project>: namespace listing per project
+   - Empty result handling and formatting
+
+3. TTL Rule Testing (Story Point: S=2):
+   - create-cache: TTL namespace creation with timeout
+   - TTL namespace behavior: default TTL application
+   - Non-TTL namespace behavior: --ttl flag rejection
+   - Expiry verification: lazy cleanup on access
+   - Edge cases: expired key access returns MISS
+
+4. Validation Testing:
+   - Delimiter restriction: active delimiter in key names
+   - Context suffix parsing: __context handling
+   - Addressing validation: malformed key rejection
+   - CLI argument validation: invalid flag combinations
+
+5. Error Condition Testing:
+   - Database access errors
+   - Invalid argument combinations  
+   - Missing required parameters
+   - File system permission issues
+   - TTL rule violations
+
+EXIT CODE TESTING MATRIX
+------------------------
+
+Success Cases (Exit 0):
+- Successful set operations
+- Found get operations  
+- Successful del operations (key exists)
+- keys/scan operations (including empty results)
+- projects/namespaces discovery
+- create-cache operations
+
+Miss Cases (Exit 2):
+- get on non-existent key
+- get on expired key  
+- Consistent MISS semantics across commands
+
+Error Cases (Non-zero, not 2):
+- Invalid arguments or flags
+- Database access failures
+- TTL rule violations (--ttl in non-TTL namespace)
+- Key validation failures (delimiter conflicts)
+- System errors (file permissions, disk space)
+
+INTEGRATION TEST ENVIRONMENT
+-----------------------------
+
+Isolated Test Setup:
+- Custom XDG_DATA_HOME for test database isolation
+- Custom XDG_CONFIG_HOME for test configuration
+- Temporary directory cleanup after test runs
+- No dependency on user's existing data
+
+Test Database Management:
+- Fresh database for each test suite
+- Predictable initial state
+- Schema verification before test execution
+- Database cleanup and disposal
+
+CI Integration Requirements:
+- No external dependencies beyond SQLite
+- Parallel test execution safety
+- Deterministic test ordering
+- Clear test output and failure reporting
+
+ACCEPTANCE CRITERIA VALIDATION
+------------------------------
+
+Functional Acceptance:
+1. All MVP commands execute without errors in clean environment
+2. Data persistence verified across command invocations
+3. TTL expiry behavior working as specified
+4. Discovery commands return expected results
+5. Error messages are clear and actionable
+
+Performance Acceptance:
+- Commands complete within reasonable time (< 1s for typical operations)
+- Database operations don't block indefinitely
+- WAL mode provides expected concurrency benefits
+- Memory usage remains bounded for typical workloads
+
+Usability Acceptance:
+- Help text is comprehensive and accurate
+- Error messages guide user to correct usage
+- Exit codes allow scripting and automation
+- Command syntax is intuitive and consistent
+
+QUALITY ASSURANCE CHECKLIST
+---------------------------
+
+Pre-Release Validation:
+□ All integration tests pass in isolated environment
+□ Exit codes verified for success/miss/error scenarios  
+□ Error messages tested and validated for clarity
+□ Help text accuracy verified
+□ XDG path compliance confirmed
+□ Database schema matches specification
+□ TTL rule enforcement working correctly
+□ Key validation preventing delimiter conflicts
+□ Context suffix parsing working properly
+□ Discovery commands returning correct data
+
+Documentation Validation:
+□ README reflects MVP storage model (S=2 story points)
+□ Command examples in docs match implementation
+□ Error message examples are current
+□ Installation/usage instructions accurate
+
+REGRESSION TESTING STRATEGY
+----------------------------
+
+Baseline Test Suite:
+- Core functionality regression tests
+- Error condition preservation
+- Exit code consistency verification
+- Database schema compatibility
+
+Change Impact Assessment:
+- Test additions for new features
+- Validation of unchanged behavior
+- Performance impact measurement
+- Error message consistency
+
+Success is defined as: "Core CRUD + discovery + TTL-create operations pass all tests in an isolated environment with correct exit codes and clear error messages." This forms the foundation for post-MVP feature development.

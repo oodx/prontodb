@@ -1,0 +1,17 @@
+In this environment, you can invoke tools using a "<antml:function_calls>" block like the following:
+<antml:function_calls>
+<antml:invoke name="$FUNCTION_NAME">
+<antml:parameter name="$PARAM_NAME">$PARAM_VALUE</antml:parameter>
+...
+</antml:invoke>
+<antml:invoke name="$FUNCTION_NAME2">
+...
+</antml:invoke>
+</antml:function_calls>
+
+Lists and objects should use JSON format.
+
+Here are the functions available in JSONSchema format:
+<functions>
+<function>{"description": "Generate flashcards.", "name": "flashcard_generator", "parameters": {"properties": {"flashcards": {"items": {"properties": {"query": {"type": "string"}, "recall": {"type": "string"}}, "required": ["recall", "query"], "type": "object"}, "type": "array"}}, "required": ["flashcards"], "type": "object"}}</function>
+</functions>

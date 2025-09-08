@@ -1,0 +1,109 @@
+ProntoDB Implementation Milestones & Current Status
+==================================================
+Date: 2025-09-08
+Target: ROADMAP.md and TASKS.md milestone analysis
+Created by: China the Summary Chicken 🐔
+
+MILESTONE BREAKDOWN
+------------------
+
+M0 — Foundation & Dispatch (Status: PARTIALLY COMPLETE)
+Tasks & Story Points:
+✓ Addressing parse + custom delimiter (DONE) 
+- Help/unknown/no-args behaviors (XS=1pt)
+- Key validation (delimiter restriction) integration (S=2pt)
+- Dispatcher: route commands (S=2pt) 
+- XDG paths usage and DB resolution (XS=1pt)
+
+Focus: CLI basics, addressing system, command routing, path resolution
+
+M1 — Core KV Operations (Status: IN PROGRESS)
+Tasks & Story Points:
+- Implement `set` wired to storage (S=2pt)
+- Implement `get` with MISS=2 semantics (S=2pt)
+- Implement `del` (XS=1pt)
+- Implement `keys` with optional prefix (S=2pt)
+- Implement `scan` with optional prefix (S=2pt)
+- Basic discovery: `projects`, `namespaces -p` (S=2pt)
+- Output/UX polish (help text, errors) (S=2pt)
+
+Focus: Core CRUD operations, discovery commands, exit code handling
+
+M2 — TTL Subset (Status: PENDING)
+Tasks & Story Points:
+- `admin create-cache project.namespace timeout=SEC` (S=2pt)
+- Enforce TTL rules in `set` (S=2pt)
+✓ Lazy expiry on `get` (DONE in storage)
+
+Focus: TTL namespace management, rule enforcement
+
+M3 — Discovery (Status: INTEGRATED WITH M1)
+- `projects` lists distinct projects
+- `namespaces -p <project>` lists namespaces for project  
+- `nss` optional aggregate (may follow after M1/M2)
+
+Focus: Project and namespace discovery operations
+
+CURRENT STATUS ANALYSIS
+-----------------------
+
+Completed Work:
+- Addressing system with custom delimiter support
+- Lazy expiry mechanism in storage layer
+- Basic SQLite storage foundation (kv + sys_namespaces tables)
+
+Active Development (per git status):
+- Modified files: src/dispatcher.rs, src/lib.rs, src/main.rs
+- New API module: src/api.rs
+- Protocol documentation: docs/proto/
+
+Story Point Summary:
+- M0 remaining: ~5 points (XS + S + S + XS)
+- M1 total: ~14 points (7 tasks × S average)
+- M2 remaining: ~4 points (2 × S)
+- Infrastructure: ~5 points (M + S + XS)
+
+INFRASTRUCTURE & TESTING
+------------------------
+
+Test Infrastructure:
+- CLI integration tests for M1 (M=3pts)
+- TTL tests for M2 rules (S=2pts)  
+- CI-friendly test harness using isolated HOME (XS=1pt)
+
+Documentation:
+✓ Consolidate ROADMAP/PRD/TASKS (DONE)
+- Update README to match MVP storage model (S=2pts)
+
+DEFERRED FEATURES (Post-MVP Backlog)
+-----------------------------------
+
+Major Features (8+ points each):
+- Streams/auth error path + full parser (L=5pts)
+- Lifecycle: install/uninstall/backup (L=5pts)  
+- TSV import/export, JSON canonicalization, --b64 (L=5pts)
+- Filesystem mirror, eviction policies, sessions (XL=8pts)
+- Per-namespace physical tables + migration (XL=8pts)
+
+CRITICAL PATH ANALYSIS
+----------------------
+
+Immediate Priority (M0 completion):
+1. Help/unknown/no-args behaviors
+2. Key validation integration  
+3. Command dispatcher routing
+4. XDG path resolution
+
+Next Phase (M1 core operations):
+1. Storage-wired set/get/del operations
+2. Prefix-filtered keys/scan
+3. Discovery commands (projects/namespaces)
+4. Exit code and error handling
+
+Success Gates:
+- All core CRUD operations pass integration tests
+- Correct exit codes (0=success, 2=miss/expired)
+- Isolated XDG environment test compatibility
+- Clear CLI UX with proper error messages
+
+Current development appears focused on API and dispatcher layers, suggesting M0→M1 transition phase. The protocol documentation suggests potential advanced feature exploration beyond MVP scope.

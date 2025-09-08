@@ -1,0 +1,113 @@
+ProntoDB Requirements & Constraints Analysis
+============================================
+Date: 2025-09-08
+Target: PRD.md requirements and constraints extraction
+Created by: China the Summary Chicken 🐔
+
+FUNCTIONAL REQUIREMENTS
+-----------------------
+
+Data Storage:
+- Single SQLite database with WAL mode
+- Single `kv` table for MVP (project/namespace/key/context keyed)
+- sys_namespaces table for TTL namespace metadata
+- TTL support via expires_at timestamps
+- Lazy expiry on get operations (delete expired, return MISS)
+
+Addressing System:
+- Pattern: project.namespace.key[__context]
+- Configurable delimiter (default: `.`)
+- Context suffix support (__context) stored in separate column
+- Full key validation preventing delimiter conflicts
+
+CLI Interface:
+- Global flags: -p PROJECT, -n NAMESPACE, -d DB, --ns-delim C
+- Core CRUD: set/get/del with proper exit codes
+- Discovery: keys/scan with prefix filtering, projects/namespaces listing
+- Admin: create-cache for TTL namespace setup
+- Output: stdout for data, stderr for status/errors
+
+TTL Functionality:
+- create-cache creates TTL-enabled namespaces with default timeout
+- TTL enforcement rules:
+  * TTL namespace + no --ttl = apply default TTL
+  * Non-TTL namespace + --ttl provided = error/reject
+- Expired key handling: delete on access, return exit code 2 (MISS)
+
+TECHNICAL CONSTRAINTS
+--------------------
+
+Architecture:
+- Single binary executable (no daemon/server)
+- No clap dependency (simple argument parsing)
+- One-shot command execution model
+- XDG Base Directory compliance
+
+Exit Code Contract:
+- 0 = success/found
+- 2 = not found/expired (MISS condition) 
+- Other non-zero = error conditions
+
+File System:
+- Data path: ~/.local/data/odx/prontodb/pronto.db
+- Config path: ~/.local/etc/odx/prontodb/pronto.conf
+- PRONTO_DB environment variable overrides DB path
+- XDG environment variable support
+
+Validation Constraints:
+- Active delimiter character cannot appear in key names
+- Key validation must occur at CLI level before database write
+- Context suffix (__context) parsing and storage separation required
+- TTL rule validation must prevent invalid combinations
+
+Performance Constraints:
+- SQLite WAL mode for improved concurrency
+- Busy timeout configuration for write conflicts
+- Lazy expiry (no active cleanup daemon)
+- Single-table design for MVP simplicity
+
+OPERATIONAL CONSTRAINTS
+-----------------------
+
+Development Process:
+- TDD approach where feasible
+- Integration tests in isolated XDG environment
+- CI-friendly test harness
+- Clear error messages and help text
+
+Feature Scope Limitations:
+- No streams or authentication preamble
+- No lifecycle management (install/uninstall/backup)
+- No import/export capabilities
+- No JSON canonicalization or base64 encoding
+- No per-namespace physical tables (single-table only)
+- No filesystem mirroring or eviction policies
+
+Quality Constraints:
+- Deterministic behavior required
+- Small surface area principle
+- Clear separation of data (stdout) vs status (stderr)
+- Comprehensive error handling with appropriate exit codes
+
+DEPENDENCIES & INTEGRATIONS
+---------------------------
+
+Core Dependencies:
+- SQLite (embedded, no external server)
+- Rust standard library
+- Minimal external crates (avoiding clap)
+
+Environment Integration:
+- XDG Base Directory specification compliance
+- Shell exit code conventions
+- Standard Unix CLI patterns
+- Environment variable overrides (PRONTO_DB)
+
+Testing Requirements:
+- Isolated test environment setup
+- Integration test coverage for all core commands
+- TTL rule validation tests
+- Error condition testing
+- Exit code verification
+
+These constraints define a deliberately minimal MVP that can be thoroughly tested and validated before expanding functionality.

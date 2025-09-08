@@ -1,5 +1,6 @@
 // ProntoDB MVP Library
 pub mod addressing;
+pub mod api;
 pub mod storage;
 pub mod xdg;
 

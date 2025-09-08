@@ -1,0 +1,159 @@
+ProntoDB Technical Architecture Decisions
+=========================================
+Date: 2025-09-08 
+Target: Architecture decisions from PRD.md and ROADMAP.md
+Created by: China the Summary Chicken 🐔
+
+STORAGE ARCHITECTURE DECISIONS
+------------------------------
+
+Single-Table Design (MVP Choice):
+- Decision: Use single `kv` table keyed by (project, namespace, key, context)
+- Rationale: Simplify MVP implementation and testing
+- Trade-off: Performance vs simplicity (chose simplicity first)
+- Future: Per-namespace physical tables deferred to post-MVP migration
+
+SQLite Configuration:
+- WAL (Write-Ahead Logging) mode enabled
+- Busy timeout configured for write conflict handling  
+- Embedded database (no external server dependency)
+- Lazy expiry model (cleanup on access, not via daemon)
+
+Schema Design:
+```
+kv table: project, namespace, key, context, value, expires_at
+sys_namespaces table: project, namespace, ttl_seconds, created_at
+```
+
+CLI ARCHITECTURE DECISIONS
+---------------------------
+
+Argument Parsing:
+- Decision: No clap dependency, custom argument parsing
+- Rationale: Minimize dependencies, small binary size
+- Implementation: Simple flag parsing with manual routing
+
+Command Dispatch Pattern:
+- Single entry point with command routing
+- One-shot execution model (no daemon/server)
+- Global flags parsed before command-specific logic
+- Clear separation: stdout=data, stderr=status
+
+Exit Code Strategy:
+- 0 = success/found
+- 2 = miss/expired (specific semantic meaning)
+- Non-zero = error conditions  
+- Consistent across all commands
+
+ADDRESSING SYSTEM DESIGN
+------------------------
+
+Key Format Decision:
+- Pattern: `project.namespace.key[__context]`
+- Configurable delimiter (default: `.`)
+- Context suffix stored in separate column
+- Full addressing can be provided via CLI or constructed from flags
+
+Validation Strategy:
+- CLI-level validation before database writes
+- Active delimiter cannot appear in key names
+- Context parsing at input processing stage
+- Reject malformed keys early with clear error messages
+
+PATH & CONFIGURATION DESIGN
+----------------------------
+
+XDG Compliance:
+- Data: ~/.local/data/odx/prontodb/pronto.db
+- Config: ~/.local/etc/odx/prontodb/pronto.conf  
+- Respects XDG environment variables
+- PRONTO_DB override for database path
+
+File System Strategy:
+- Single database file approach
+- No filesystem mirroring (deferred feature)
+- Config file for future extensibility
+- Standard Unix file permissions
+
+TTL ARCHITECTURE DECISIONS
+--------------------------
+
+Namespace-Level TTL:
+- TTL configuration stored per namespace in sys_namespaces
+- create-cache command establishes TTL namespaces
+- Enforcement rules prevent TTL/non-TTL command conflicts
+
+Expiry Strategy:
+- Lazy expiry: delete expired records on access
+- No background cleanup daemon  
+- Return MISS (exit 2) for expired keys
+- Atomic delete-and-miss operation
+
+Rule Enforcement:
+- TTL namespace + no --ttl = apply namespace default
+- Non-TTL namespace + --ttl = error/reject
+- Validation at command processing level
+
+DEPENDENCY & INTEGRATION DECISIONS
+----------------------------------
+
+Minimal Dependency Philosophy:
+- Avoid heavyweight CLI frameworks (no clap)
+- Standard library preference where possible
+- SQLite as only major external dependency
+- Rust ecosystem integration without feature bloat
+
+Integration Patterns:
+- Shell integration via exit codes
+- Environment variable configuration
+- Standard Unix CLI conventions
+- XDG Base Directory specification compliance
+
+ERROR HANDLING ARCHITECTURE
+----------------------------
+
+Error Classification:
+- User errors: bad arguments, validation failures
+- System errors: database access, filesystem issues
+- Logic errors: TTL rule violations, not found conditions
+- Each category maps to appropriate exit codes
+
+Error Communication:
+- stderr for all error messages and status
+- stdout reserved exclusively for data output
+- Clear, actionable error messages
+- Consistent error format across commands
+
+TESTING ARCHITECTURE DECISIONS
+-------------------------------
+
+Test Environment Isolation:
+- Isolated XDG environment for integration tests
+- Temporary database files for test isolation
+- No shared state between test runs
+- CI-friendly harness design
+
+Test Strategy:
+- Integration tests cover full command workflows
+- Unit tests for core logic components
+- TTL rule validation testing
+- Error condition coverage
+
+FUTURE ARCHITECTURE CONSIDERATIONS
+----------------------------------
+
+Deferred Decisions (Post-MVP):
+- Per-namespace table migration strategy
+- Streams/auth preamble integration points
+- Import/export format standardization
+- Background cleanup daemon architecture
+- Filesystem mirror synchronization
+- Session/API key management
+
+Migration Path:
+- Single-table → per-namespace tables
+- Backward compatibility preservation
+- Data migration tooling
+- Zero-downtime upgrade strategy
+
+These architectural decisions prioritize MVP delivery while establishing patterns that can scale to more complex future requirements.
