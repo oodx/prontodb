@@ -1,8 +1,12 @@
-// RSB-compliant ProntoDB library
-pub mod prontodb;
+// ProntoDB MVP Library
+pub mod addressing;
+pub mod storage;
+pub mod xdg;
 
-// Re-export main modules for easy access
-pub use prontodb::*;
+// Re-export key types for convenience  
+pub use addressing::Address;
+pub use storage::Storage;
+pub use xdg::XdgPaths;
 
 // TDD infrastructure validation function for Card 001
 /// Validates that the TDD infrastructure is properly set up and working

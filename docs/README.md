@@ -1,7 +1,6 @@
-# ProntoDB
+# ProntoDB (Docs Snapshot)
 
-**ProntoDB** is a **single-binary, RSB-style, string-only key–value store CLI** built on top of **SQLite (system `libsqlite3`)**.
-It acts as a **fast virtual wrapper for multi-agent workflows**, giving you hierarchical namespaces, TTL-aware caches, streaming inserts with meta-directives, and optional filesystem mirroring for `grep`/`rg`-friendly exploration — all with zero daemons and near-SQLite performance.
+This directory now serves as a snapshot of prior documentation. See root-level `PRD.md`, `ROADMAP.md`, and `TASKS.md` for the active, consolidated documents aligned to the MVP.
 
 ---
 
@@ -75,15 +74,7 @@ prontodb [-p PROJECT] [-n NAMESPACE] [-d DB] [--ns-delim C] [--json] [--b64] <co
 - `admin set-cache <project.namespace> key=val;...`
 - `admin drop-cache <project.namespace>`
 
-**Streams**
-- `stream`
-  - Requires auth preamble unless disabled
-  - Auth order: `meta:sec:pass=...; meta:sec:user=...;` or `meta:sec:apikey=...;`
-  - Namespace: `meta:path=project.namespace;` or `meta:project=...; meta:namespace=...;`
-  - Alias: `meta:ns=...;`
-  - Directives: `meta:delim=.|:`, `meta:ttl=SECONDS` (only valid in TTL ns)
-  - Data tokens: `key=value; key__ctx=value;`
-  - One transaction per namespace
+Streams and other advanced features are deferred post-MVP.
 
 **Exit codes**
 - `0` → success
@@ -189,8 +180,4 @@ prontodb proto auth sec=myapikey;
 ---
 
 ## 🚀 Roadmap
-See [Pronto Db Roadmap](./Pronto%20Db%20Roadmap).
-
-- **v0.1** — Core engine, CRUD, TTL ns, auth, backup, stream, JSON/b64, env shims
-- **v0.2** — TSV import/export, stream grammar polish, discovery, cache admin polish
-- **v0.3** — export-fs/import-fs, eviction policies, sessions/API keys, compression, encryption, server stub
+See root `ROADMAP.md`.

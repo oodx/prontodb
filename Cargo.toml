@@ -9,26 +9,28 @@ repository = "https://github.com/oodx/prontodb"
 [dependencies]
 anyhow = "1"
 base64 = "0.22"
-directories = "5"
+directories = "6"
 rusqlite = { version = "0.32" }                    # default: link to system SQLite
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+tempfile = "3"
 
 # RSB framework/macros (using your repo URL; assumes the RSB crate(s) are exported from that workspace)
-rsb = { git = "https://github.com/oodx/rebel", branch = "main" }
+#rsb = { git = "https://github.com/oodx/rebel", branch = "main" }
 
 # Optional value-layer features
 zstd = { version = "0.13", optional = true }       # compression-zstd
 aes-gcm = { version = "0.10", features = ["aes"], optional = true }  # encryption
 pbkdf2 = { version = "0.12", optional = true }
 sha2 = { version = "0.10", optional = true }
-rand = { version = "0.8", optional = true }
+rand = { version = "0.9.2", optional = true }
 
 [dev-dependencies]
-tempfile = "3"
+assert_cmd = "2.0"
+predicates = "3.0"
 
 [features]
-default = ["json"]                                  # you said JSON is divine → enable by default
+default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds
 json = ["dep:serde", "dep:serde_json"]
 
 # Use system SQLite by default. If you want portability, build with:

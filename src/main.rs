@@ -1,27 +1,20 @@
-// ProntoDB v0.1 - RSB-compliant implementation
-// Clean main with minimal entry point and dispatch only
+// ProntoDB v0.1 - Pragmatic MVP implementation
+// Main entry point with command dispatcher
 
-use rsb::prelude::*;
+mod dispatcher;
+mod addressing;
+mod storage;
+mod xdg;
 
-mod prontodb;
-use prontodb::*;
+use std::env;
 
 fn main() {
-    let args = bootstrap!();
+    // Get command line arguments
+    let args: Vec<String> = env::args().collect();
     
-    dispatch!(&args, {
-        "install" => do_install,
-        "uninstall" => do_uninstall,
-        "set" => do_set,
-        "get" => do_get,
-        "del" => do_del,
-        "keys" => do_keys,
-        "ls" => do_keys,
-        "projects" => do_projects,
-        "namespaces" => do_namespaces,
-        "nss" => do_nss,
-        "backup" => do_backup,
-        "stream" => do_stream,
-        "admin" => do_admin
-    });
+    // Dispatch to command handler
+    let exit_code = dispatcher::dispatch(args);
+    
+    // Exit with appropriate code
+    std::process::exit(exit_code);
 }
