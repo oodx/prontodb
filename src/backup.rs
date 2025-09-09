@@ -23,6 +23,7 @@ pub enum BackupError {
     IoError(io::Error),
     CompressionError(String),
     ValidationError(String),
+    #[allow(dead_code)]  // Reserved for future permission checks
     PermissionError(String),
 }
 

@@ -1,6 +1,8 @@
 // XDG+ path management for ProntoDB
 // Provides proper path isolation for testing and multi-instance setups
 
+#![allow(dead_code)]  // Some functions are for future use
+
 use rsb::prelude::*;
 
 use std::path::{Path, PathBuf};

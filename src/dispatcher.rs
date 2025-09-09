@@ -1,5 +1,9 @@
 // Core command dispatcher for ProntoDB
 // Routes commands to appropriate handlers and manages exit codes
+// Note: This module is being phased out in favor of RSB architecture,
+// but is still used as a bridge from RSB handlers in lib.rs
+
+#![allow(dead_code)]  // Temporary while transitioning to full RSB
 
 use std::collections::HashMap;
 

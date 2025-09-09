@@ -1,6 +1,8 @@
 // Storage module for SQLite database operations
 // Handles all database interactions for ProntoDB
 
+#![allow(dead_code)]  // Some functions are used via pub api
+
 use rusqlite::{Connection, Result, params};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};

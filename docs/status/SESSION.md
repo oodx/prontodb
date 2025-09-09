@@ -46,7 +46,7 @@ The lifecycle commands (backup.rs, install/uninstall in main.rs) have **critical
    - Missing RSB validation macros
 
 ### VIOLATION REPORTS GENERATED
-- `.rebel/YAP_LIFECYCLE_VIOLATIONS_20250909.md` - Complete corrective actions
+- `docs/.rebel/YAP_LIFECYCLE_VIOLATIONS_20250909.md` - Complete corrective actions
 - All violations catalogued with exact locations and RSB-compliant fixes
 
 ### RECOMMENDATION

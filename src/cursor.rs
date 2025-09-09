@@ -22,6 +22,7 @@ pub struct CursorData {
 }
 
 impl CursorData {
+    #[allow(dead_code)]  // Methods for future cursor features
     /// Create new cursor data
     pub fn new(database_path: PathBuf, user: String) -> Self {
         let created_at = SystemTime::now()
@@ -43,12 +44,14 @@ impl CursorData {
     }
 
     /// Set default project for this cursor
+    #[allow(dead_code)]
     pub fn with_project(mut self, project: String) -> Self {
         self.default_project = Some(project);
         self
     }
 
     /// Set default namespace for this cursor
+    #[allow(dead_code)]
     pub fn with_namespace(mut self, namespace: String) -> Self {
         self.default_namespace = Some(namespace);
         self
@@ -75,6 +78,7 @@ impl CursorManager {
     }
 
     /// Create cursor manager from specific XDG paths (for testing)
+    #[allow(dead_code)]
     pub fn from_xdg(xdg: XdgPaths) -> Self {
         let cursor_dir = xdg.data_dir.join("cursors");
         fs::create_dir_all(&cursor_dir).expect("Failed to create cursor directory for testing");
@@ -93,6 +97,7 @@ impl CursorManager {
     }
 
     /// Set a cursor with project and namespace defaults
+    #[allow(dead_code)]
     pub fn set_cursor_with_defaults(
         &self,
         name: &str,
@@ -127,6 +132,7 @@ impl CursorManager {
     }
 
     /// Get the active cursor (default cursor for user)
+    #[allow(dead_code)]
     pub fn get_active_cursor(&self, user: &str) -> Result<Option<CursorData>, Box<dyn std::error::Error>> {
         match self.get_cursor("default", user) {
             Ok(cursor) => Ok(Some(cursor)),
@@ -135,6 +141,7 @@ impl CursorManager {
     }
 
     /// List all cursors for a user
+    #[allow(dead_code)]
     pub fn list_cursors(&self, user: &str) -> Result<HashMap<String, CursorData>, Box<dyn std::error::Error>> {
         let mut cursors = HashMap::new();
         let user_suffix = if user == "default" { ".cursor".to_string() } else { format!(".{}.cursor", user) };
@@ -168,6 +175,7 @@ impl CursorManager {
     }
 
     /// List all cursors across all users (for admin purposes)
+    #[allow(dead_code)]
     pub fn list_all_cursors(&self) -> Result<HashMap<String, CursorData>, Box<dyn std::error::Error>> {
         let mut cursors = HashMap::new();
         
@@ -196,6 +204,7 @@ impl CursorManager {
     }
 
     /// Delete a cursor
+    #[allow(dead_code)]
     pub fn delete_cursor(&self, name: &str, user: &str) -> Result<bool, Box<dyn std::error::Error>> {
         let cursor_file = self.get_cursor_file_path(name, user);
         

@@ -3,7 +3,7 @@
 # Tests all functionality including cursor support, multi-user, and lifecycle commands
 
 
-#TODO: IMPORTANT THIS FILE WAS MOVED FROM PROJECT ROOT TO BIN, PATHS NEED UPDATING!
+# Test paths are relative to the project root
 set -e  # Exit on any error
 
 # Colors for output
@@ -20,15 +20,15 @@ TEST_CURSOR_1="staging"
 TEST_CURSOR_2="production"
 TEST_PROJECT="testapp"
 TEST_NAMESPACE="config"
-BACKUP_DIR="./test_backups"
-INSTALL_DIR="./test_install"
+BACKUP_DIR="../test_backups"
+INSTALL_DIR="../test_install"
 
 # Cleanup function
 cleanup() {
     echo -e "${YELLOW}🧹 Cleaning up test environment...${NC}"
     
     # Remove test databases
-    rm -f ./test_staging.db ./test_production.db ./test_alice.db ./test_bob.db
+    rm -f ../test_staging.db ../test_production.db ../test_alice.db ../test_bob.db
     
     # Remove test backups
     rm -rf "$BACKUP_DIR"
@@ -116,8 +116,8 @@ log_success "TTL cache creation working"
 log_test "Cursor management operations"
 
 # Create test cursors
-$PRONTODB cursor set "$TEST_CURSOR_1" "./test_staging.db" || log_error "Cursor creation failed"
-$PRONTODB cursor set "$TEST_CURSOR_2" "./test_production.db" || log_error "Cursor creation failed"
+$PRONTODB cursor set "$TEST_CURSOR_1" "../test_staging.db" || log_error "Cursor creation failed"
+$PRONTODB cursor set "$TEST_CURSOR_2" "../test_production.db" || log_error "Cursor creation failed"
 
 # List cursors
 CURSOR_LIST=$($PRONTODB cursor list)
@@ -146,8 +146,8 @@ log_success "Cursor management working"
 log_test "Multi-user isolation"
 
 # Create user-specific cursors
-$PRONTODB --user "$TEST_USER_1" cursor set "dev" "./test_alice.db" || log_error "User cursor creation failed"
-$PRONTODB --user "$TEST_USER_2" cursor set "dev" "./test_bob.db" || log_error "User cursor creation failed"
+$PRONTODB --user "$TEST_USER_1" cursor set "dev" "../test_alice.db" || log_error "User cursor creation failed"
+$PRONTODB --user "$TEST_USER_2" cursor set "dev" "../test_bob.db" || log_error "User cursor creation failed"
 
 # Set user-specific data
 $PRONTODB --user "$TEST_USER_1" --cursor "dev" set "user.name" "Alice Developer" || log_error "User-specific set failed"

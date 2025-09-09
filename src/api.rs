@@ -1,3 +1,5 @@
+#![allow(dead_code)]  // Functions are exported for library use
+
 use crate::addressing::Address;
 use crate::cursor::CursorManager;
 use crate::storage::Storage;

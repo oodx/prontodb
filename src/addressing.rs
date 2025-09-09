@@ -1,6 +1,8 @@
 // Addressing module for parsing canonical paths
 // Handles project.namespace.key__context format
 
+#![allow(dead_code)]  // Some functions are used via pub api
+
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
