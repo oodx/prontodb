@@ -1,49 +1,51 @@
-# ProntoDB Actual Syntax & Limitations
+# ProntoDB CORRECTED API - Consistent Dot Addressing
 
-## Current Implementation Limitations
+## FIXED: Consistent Dot Addressing Support
 
-### 1. Dot Addressing - ONLY 3 Levels Supported
+### 1. Core CRUD Operations - Full Dot Addressing ✅
 ```bash
-# ✅ WORKS: 
+# All core operations support dot addressing:
 prontodb set myapp.config.debug "true"        # project.namespace.key
+prontodb get myapp.config.debug               # ✅ WORKS
+prontodb del myapp.config.debug               # ✅ WORKS
+
+# Shorter forms:
 prontodb set config.debug "true"              # namespace.key (uses default project)
 prontodb set debug "true"                     # key (uses default.default)
+```
 
+### 2. Discovery Operations - NOW WITH DOT ADDRESSING ✅
+```bash
+# ✅ FIXED: All discovery commands now support dot addressing
+prontodb keys myapp.config                    # List keys in myapp.config namespace
+prontodb keys myapp.config prefix             # List keys with prefix
+prontodb scan myapp.config                    # Scan key-value pairs
+prontodb scan myapp.config prefix             # Scan with prefix
+
+# Also still works with explicit flags:
+prontodb keys -p myapp -n config
+prontodb scan -p myapp -n config
+```
+
+### 3. Create-Cache - FIXED SYNTAX ✅
+```bash
+# ✅ CORRECTED: Simple positional arguments
+prontodb create-cache myapp.sessions 3600     # project.namespace ttl_seconds
+
+# Old timeout= syntax removed for consistency
+```
+
+### 4. Addressing Limitations (Unchanged)
+```bash
+# Still limited to 3 levels maximum:
 # ❌ FAILS: More than 3 dots
 prontodb set myapp.prod.db.host "prod.db.com" # ERROR: 4 parts not supported
-# Workaround: Use underscores in the key
+# ✅ WORKAROUND: Use underscores in the key
 prontodb set myapp.prod.db_host "prod.db.com" # This works
-```
 
-### 2. Keys Cannot Contain Dots
-The key (3rd part) cannot contain the delimiter (dot):
-```bash
-# ❌ FAILS:
-prontodb set myapp.config.db.host "value"  # ERROR: key "db.host" contains dot
-
-# ✅ WORKS:
-prontodb set myapp.config.db_host "value"  # Use underscore instead
-```
-
-### 3. Keys/Scan Commands Need Explicit Flags
-The `keys` and `scan` commands don't parse dot addresses:
-```bash
-# ❌ WRONG (from UAT):
-prontodb keys myapp.prod
-prontodb scan myapp.prod
-
-# ✅ CORRECT:
-prontodb keys -p myapp -n prod
-prontodb scan -p myapp -n prod
-```
-
-### 4. Create-Cache Syntax
-```bash
-# ❌ WRONG (from UAT):
-prontodb create-cache sessions.cache 3600
-
-# ✅ CORRECT:
-prontodb create-cache sessions.cache timeout=3600
+# Keys still cannot contain dots (3rd part only):
+# ❌ FAILS: prontodb set myapp.config.db.host "value"  
+# ✅ WORKS: prontodb set myapp.config.db_host "value"
 ```
 
 ## Working Examples
@@ -77,8 +79,8 @@ prontodb scan -p myapp -n config
 
 ### TTL/Cache Operations
 ```bash
-# Create TTL namespace (note the timeout= syntax)
-prontodb create-cache myapp.sessions timeout=3600
+# Create TTL namespace (positional timeout argument)
+prontodb create-cache myapp.sessions 3600
 
 # Then use it normally
 prontodb set myapp.sessions.user123 "active"

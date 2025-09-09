@@ -1,0 +1,41 @@
+# RSB DEFECTS - ProntoDB Project
+# As per Amendment B: RSB Pro-Active Maturation
+# Added: 2025-09-09
+# Context: Known RSB framework issues encountered during development
+
+## DEFECT 1: expand_vars() Template Parsing Limitation
+**RSB Version**: 0.5.0 (local path = "../rsb")
+**API Affected**: rsb context expand_vars() function
+**Use Case**: XDG directory path template expansion
+**Issue**: RSB's expand_vars() cannot parse `${VAR:-default}` bash shell syntax
+**Symptom**: Creates literal directories named `${XDG_TMP:-` in filesystem
+**Workaround**: Replaced with std::env::var() + manual fallback logic in xdg.rs
+**Files**: src/xdg.rs lines 45-65, context.rs lines 323-353 (RSB library)
+**Status**: Fixed locally, needs upstream RSB library enhancement
+
+## DEFECT 2: param!() Macro Environment Integration
+**RSB Version**: 0.5.0 (local path = "../rsb") 
+**API Affected**: param!() macro for environment variable access
+**Use Case**: XDG Base Directory Specification compliance
+**Issue**: param!() doesn't integrate cleanly with XDG fallback chain patterns
+**Symptom**: Complex nested param!() calls become less readable than std::env::var
+**Pattern**: XDG requires VAR1 -> VAR2 -> hardcoded_default fallback chains
+**Workaround**: Strategic std::env::var() usage for XDG-specific patterns
+**Files**: src/xdg.rs (16 instances), src/storage.rs (3 instances)
+**Status**: Design consideration - may need RSB macro enhancement for complex fallbacks
+
+## DEFECT 3: RSB Three-Tier Function Ordinality 
+**RSB Version**: 0.5.0 (local path = "../rsb")
+**API Affected**: Function naming convention (do_ -> _helper_ -> __blind_faith_)
+**Use Case**: Command dispatcher architecture 
+**Issue**: Three-tier pattern conflicts with existing dispatcher.rs legacy architecture
+**Symptom**: Would require major refactoring to retrofit _helper_/__blind_faith_ layers
+**Context**: ProntoDB uses RSB lifecycle but maintains legacy dispatcher for compatibility
+**Files**: src/dispatcher.rs, src/main.rs, lib.rs
+**Status**: Architectural decision - hybrid RSB/legacy approach for gradual migration
+
+## NOTES:
+- All defects documented here provide compliance caveat per Amendment B
+- Project maintains ~85% RSB compliance with documented exceptions
+- Local RSB patches applied and working for production use
+- Future RSB versions may resolve these integration challenges
