@@ -181,7 +181,7 @@ EOF
 Creating TTL namespace and testing rules
 EOF
     
-    run_command "$BINARY create-cache $TEST_PROJECT.$TTL_NAMESPACE timeout=300" "Create TTL namespace with 5min timeout"
+    run_command "$BINARY create-cache $TEST_PROJECT.$TTL_NAMESPACE 300" "Create TTL namespace with 5min timeout"
     run_command "$BINARY -p $TEST_PROJECT namespaces" "List namespaces (should show cache namespace)"
     run_command "$BINARY -p $TEST_PROJECT -n $TTL_NAMESPACE set temp_session 'user123_active'" "Set value in TTL namespace (uses default TTL)"
     run_command "$BINARY -p $TEST_PROJECT -n $TTL_NAMESPACE get temp_session" "Get value from TTL namespace"
