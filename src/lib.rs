@@ -13,7 +13,7 @@ pub mod xdg;
 
 // Re-export key types for convenience  
 pub use addressing::Address;
-pub use commands::backup::{BackupResult, BackupError, BackupConfig};
+// Removed unused backup exports - these are only used internally in the backup module
 pub use cursor::{CursorData, CursorManager};
 pub use cursor_cache::CursorCache;
 pub use storage::Storage;
@@ -140,6 +140,11 @@ pub fn do_noop(args: rsb::args::Args) -> i32 {
         // No cursor flag provided, just do nothing (no-operation)
         0
     }
+}
+
+pub fn do_version(_args: rsb::args::Args) -> i32 {
+    println!("prontodb v{}", env!("CARGO_PKG_VERSION"));
+    0
 }
 
 pub fn do_help(_args: rsb::args::Args) -> i32 {

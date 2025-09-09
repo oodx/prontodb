@@ -30,6 +30,7 @@ impl CursorCache {
     }
 
     /// Create cursor cache from specific directory (for testing)
+    #[allow(dead_code)]
     pub fn from_dir(cache_dir: PathBuf) -> Self {
         if let Err(e) = fs::create_dir_all(&cache_dir) {
             eprintln!("Warning: Failed to create cursor cache directory {}: {}", cache_dir.display(), e);
@@ -82,6 +83,7 @@ impl CursorCache {
     }
 
     /// Check if cursor cache exists for a user
+    #[allow(dead_code)]
     pub fn has_cursor(&self, user: Option<&str>) -> bool {
         let cache_file = self.get_cache_file_path(user);
         cache_file.exists() && self.get_cursor(user).is_some()
@@ -129,6 +131,7 @@ impl CursorCache {
     }
 
     /// Get the cache directory path (for testing and debugging)
+    #[allow(dead_code)]
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }

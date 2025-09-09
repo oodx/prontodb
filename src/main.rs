@@ -14,7 +14,7 @@ mod cursor_cache;
 use rsb::prelude::*;
 
 // Import RSB command handlers
-use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_cursor, do_noop};
+use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_version, do_cursor, do_noop};
 
 // RSB lifecycle command handlers with proper naming convention
 fn do_install(args: rsb::args::Args) -> i32 {
@@ -321,8 +321,20 @@ fn do_backup(args: rsb::args::Args) -> i32 {
 }
 
 fn main() {
-    // Check for global flags before RSB processes them as unknown commands
+    // Check for version and help flags first (highest priority)
     let raw_args: Vec<String> = std::env::args().collect();
+    
+    // Handle version flags early
+    if raw_args.iter().any(|arg| arg == "--version" || arg == "-v") {
+        prontodb::do_version(rsb::args::Args::new(&[]));
+        std::process::exit(0);
+    }
+    
+    // Handle help flags early (but after version)
+    if raw_args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        prontodb::do_help(rsb::args::Args::new(&[]));
+        std::process::exit(0);
+    }
     
     // If we find global flags, intercept and handle them
     if raw_args.iter().any(|arg| arg == "--cursor" || arg == "--user" || arg == "--database") {
@@ -364,6 +376,7 @@ fn main() {
         "admin" => do_admin,
         "cursor" => do_cursor,
         "noop" => do_noop,
+        "version" => do_version,
         "help" => do_help
     });
     // No manual exit - RSB dispatch! handles it

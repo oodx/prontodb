@@ -63,8 +63,6 @@ impl From<io::Error> for BackupError {
 /// Backup configuration for database backup operations  
 pub struct BackupConfig<'a> {
     pub output_path: Option<&'a str>,
-    pub cursor_name: Option<&'a str>,  // Deprecated - use database instead
-    pub user: &'a str,
     pub database: &'a str,  // SP-4: Database name for scoped backups
 }
 
@@ -313,7 +311,7 @@ pub fn handle_backup_command(args: rsb::args::Args) -> i32 {
     let mut restore_file = None;
     let mut quiet = false;
     let mut cursor_name: Option<String> = None;  // Deprecated - will map to database
-    let mut user = "default".to_string();
+    let mut _user = "default".to_string();
     let mut database = "main".to_string();  // SP-4: Database name support
     
     let arg_list = args.all();
@@ -341,7 +339,7 @@ pub fn handle_backup_command(args: rsb::args::Args) -> i32 {
                 i += 2;
             }
             "--user" if i + 1 < arg_list.len() => {
-                user = arg_list[i + 1].clone();
+                _user = arg_list[i + 1].clone();
                 i += 2;
             }
             "--quiet" | "-q" => {
@@ -446,8 +444,6 @@ pub fn handle_backup_command(args: rsb::args::Args) -> i32 {
         
         let config = BackupConfig {
             output_path: output_dir.as_deref(),
-            cursor_name: cursor_name.as_deref(),
-            user: &user,
             database: effective_database,
         };
         
@@ -479,8 +475,6 @@ pub fn handle_backup_command(args: rsb::args::Args) -> i32 {
     
     let config = BackupConfig {
         output_path: output_dir.as_deref(),
-        cursor_name: cursor_name.as_deref(),
-        user: &user,
         database: effective_database,
     };
     
