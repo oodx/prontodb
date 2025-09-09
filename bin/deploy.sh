@@ -112,18 +112,21 @@ if has_boxy; then
         echo "📍 Binary: $BIN_DIR/$BINARY_NAME"
         echo
         echo "💡 Usage Examples:"
-        echo "   prontodb -p myapp -n config set debug true"
+        echo "   prontodb set myapp.config.debug true      # Dot addressing"
         echo "   prontodb get myapp.config.debug"
-        echo "   prontodb create-cache myapp.sessions timeout=3600"
-        echo "   prontodb projects                         # Discovery"
-        echo "   prontodb help                             # Full command reference"
+        echo "   prontodb cursor set staging /staging.db   # Multi-database"
+        echo "   prontodb --cursor staging --user alice set task.status running"
+        echo "   prontodb backup --output backup.tar.gz    # Lifecycle"
+        echo "   prontodb projects                          # Discovery"
+        echo "   prontodb help                              # Full reference"
         echo
         echo "🎭 Features:"
-        echo "   • Namespaced storage with project.namespace addressing"
-        echo "   • TTL namespace support for caching"
-        echo "   • Context addressing (key__context)"
-        echo "   • RSB integration with lifecycle commands"
-        echo "   • XDG Base Directory compliance"
+        echo "   • Dot addressing: project.namespace.key syntax" 
+        echo "   • Multi-database cursor support with isolation"
+        echo "   • Multi-user workflows via --user flag"
+        echo "   • TTL namespaces for caching with expiry"
+        echo "   • Complete lifecycle: install/backup/uninstall"
+        echo "   • RSB framework integration & XDG compliance"
     } | boxy --theme success --header "🗄️ ProntoDB v$VERSION Deployed" \
              --status "sr:$(date '+%H:%M:%S')" \
              --footer "✅ Ready for production use" \
@@ -133,11 +136,13 @@ else
     echo "📍 Binary symlink: $BIN_DIR/$BINARY_NAME"
     echo
     echo "💡 Usage Examples:"
-    echo "   prontodb -p myapp -n config set debug true"
+    echo "   prontodb set myapp.config.debug true      # Dot addressing"
     echo "   prontodb get myapp.config.debug"
-    echo "   prontodb create-cache myapp.sessions timeout=3600"
-    echo "   prontodb projects                         # Discovery"
-    echo "   prontodb help                             # Full command reference"
+    echo "   prontodb cursor set staging /staging.db   # Multi-database"
+    echo "   prontodb --cursor staging --user alice set task.status running"
+    echo "   prontodb backup --output backup.tar.gz    # Lifecycle"
+    echo "   prontodb projects                          # Discovery"
+    echo "   prontodb help                              # Full reference"
 fi
 
 echo
@@ -150,7 +155,7 @@ TEST_KEY="deploy_check"
 TEST_VALUE="$(date '+%Y-%m-%d_%H:%M:%S')"
 
 echo "Testing set operation..."
-if "$BIN_DIR/$BINARY_NAME" -p "$TEST_PROJECT" -n "$TEST_NAMESPACE" set "$TEST_KEY" "$TEST_VALUE"; then
+if "$BIN_DIR/$BINARY_NAME" set "$TEST_PROJECT.$TEST_NAMESPACE.$TEST_KEY" "$TEST_VALUE"; then
     echo "✅ Set operation successful"
 else
     ceremony_msg "❌ Set operation failed!" "error"
@@ -158,7 +163,7 @@ else
 fi
 
 echo "Testing get operation..."
-if RESULT=$("$BIN_DIR/$BINARY_NAME" -p "$TEST_PROJECT" -n "$TEST_NAMESPACE" get "$TEST_KEY") && [[ "$RESULT" == "$TEST_VALUE" ]]; then
+if RESULT=$("$BIN_DIR/$BINARY_NAME" get "$TEST_PROJECT.$TEST_NAMESPACE.$TEST_KEY") && [[ "$RESULT" == "$TEST_VALUE" ]]; then
     echo "✅ Get operation successful: $RESULT"
 else
     ceremony_msg "❌ Get operation failed!" "error"
@@ -166,7 +171,7 @@ else
 fi
 
 echo "Testing delete operation..."
-if "$BIN_DIR/$BINARY_NAME" -p "$TEST_PROJECT" -n "$TEST_NAMESPACE" del "$TEST_KEY"; then
+if "$BIN_DIR/$BINARY_NAME" del "$TEST_PROJECT.$TEST_NAMESPACE.$TEST_KEY"; then
     echo "✅ Delete operation successful"
 else
     ceremony_msg "❌ Delete operation failed!" "error"
@@ -181,15 +186,50 @@ else
     exit 1
 fi
 
+echo "Testing dot addressing..."
+if "$BIN_DIR/$BINARY_NAME" set "deploy.test.dotkey" "dotvalue" && 
+   RESULT=$("$BIN_DIR/$BINARY_NAME" get "deploy.test.dotkey") && 
+   [[ "$RESULT" == "dotvalue" ]]; then
+    echo "✅ Dot addressing functional"
+    "$BIN_DIR/$BINARY_NAME" del "deploy.test.dotkey" >/dev/null 2>&1
+else
+    ceremony_msg "❌ Dot addressing failed!" "error"
+    exit 1
+fi
+
+echo "Testing cursor support..."
+if "$BIN_DIR/$BINARY_NAME" cursor set "deploy_test" "/tmp/deploy_test.db" &&
+   "$BIN_DIR/$BINARY_NAME" --cursor "deploy_test" set "cursor.test.key" "cursorvalue" &&
+   RESULT=$("$BIN_DIR/$BINARY_NAME" --cursor "deploy_test" get "cursor.test.key") &&
+   [[ "$RESULT" == "cursorvalue" ]]; then
+    echo "✅ Cursor support functional"
+    "$BIN_DIR/$BINARY_NAME" cursor delete "deploy_test" >/dev/null 2>&1
+    rm -f "/tmp/deploy_test.db" 2>/dev/null
+else
+    ceremony_msg "❌ Cursor support failed!" "error"
+    exit 1
+fi
+
+echo "Testing lifecycle commands..."
+if "$BIN_DIR/$BINARY_NAME" backup --help >/dev/null 2>&1 &&
+   "$BIN_DIR/$BINARY_NAME" install --help >/dev/null 2>&1; then
+    echo "✅ Lifecycle commands available"
+else
+    ceremony_msg "❌ Lifecycle commands failed!" "error"
+    exit 1
+fi
+
 # Final ceremony
 ceremony_msg "🎉 PRONTODB v$VERSION READY FOR USE!" "success"
 
 if has_boxy; then
     {
-        echo "Run the UAT ceremony:"
-        echo "   cd $ROOT_DIR && ./bin/uat.sh"
+        echo "Run the comprehensive UAT:"
+        echo "   cd $ROOT_DIR && ./test.sh"
         echo
-        echo "Or test immediately:"
+        echo "Test immediately:"
         echo "   $BIN_DIR/$BINARY_NAME help"
+        echo "   $BIN_DIR/$BINARY_NAME set app.config.test 'deployed'"
+        echo "   $BIN_DIR/$BINARY_NAME --user deploy cursor list"
     } | boxy --theme info --header "🚀 Next Steps"
 fi

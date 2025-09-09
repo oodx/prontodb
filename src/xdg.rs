@@ -5,6 +5,36 @@ use rsb::prelude::*;
 
 use std::path::{Path, PathBuf};
 
+/// Validates that a path doesn't contain shell expansion syntax that could cause filesystem pollution
+fn validate_path_safety(path: &Path) -> Result<(), String> {
+    let path_str = path.to_string_lossy();
+    
+    // Check for malformed shell expansion patterns
+    if path_str.contains("${") && !path_str.contains("}") {
+        return Err(format!("Detected malformed shell expansion in path: {}", path_str));
+    }
+    
+    // Check for literal shell expansion patterns that should have been expanded
+    if path_str.contains("${XDG_") || path_str.contains("${HOME") {
+        return Err(format!("Detected literal shell expansion that should be resolved: {}", path_str));
+    }
+    
+    Ok(())
+}
+
+/// Safely create directory with path validation
+fn safe_create_dir_all(path: &Path) -> Result<(), std::io::Error> {
+    // Validate path safety first
+    if let Err(e) = validate_path_safety(path) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Path validation failed: {}", e)
+        ));
+    }
+    
+    std::fs::create_dir_all(path)
+}
+
 /// XDG+ paths for ProntoDB
 /// Follows XDG Base Directory Specification with prontodb-specific structure
 #[derive(Debug, Clone)]
@@ -72,15 +102,15 @@ impl XdgPaths {
         }
     }
 
-    /// Create all necessary directories
+    /// Create all necessary directories with safety validation
     pub fn ensure_dirs(&self) -> Result<(), std::io::Error> {
-        std::fs::create_dir_all(&self.data_dir)?;
-        std::fs::create_dir_all(&self.config_dir)?;
-        std::fs::create_dir_all(&self.cache_dir)?;
-        std::fs::create_dir_all(&self.cursor_dir)?;
+        safe_create_dir_all(&self.data_dir)?;
+        safe_create_dir_all(&self.config_dir)?;
+        safe_create_dir_all(&self.cache_dir)?;
+        safe_create_dir_all(&self.cursor_dir)?;
         
         if let Some(runtime_dir) = &self.runtime_dir {
-            std::fs::create_dir_all(runtime_dir)?;
+            safe_create_dir_all(runtime_dir)?;
         }
         
         Ok(())
@@ -132,11 +162,14 @@ impl XdgPaths {
             }
         }
         
-        // Then check RSB param for production
-        let home = param!("HOME", default: "");
-        if !home.is_empty() {
-            PathBuf::from(home)
-        } else {
+        // Then check stdlib env var for production
+        if let Ok(home) = std::env::var("HOME") {
+            if !home.is_empty() {
+                return PathBuf::from(home);
+            }
+        }
+        
+        {
             // Check Windows USERPROFILE runtime first
             if let Ok(runtime_userprofile) = std::env::var("USERPROFILE") {
                 if !runtime_userprofile.is_empty() {
@@ -144,11 +177,14 @@ impl XdgPaths {
                 }
             }
             
-            let userprofile = param!("USERPROFILE", default: "");
-            if !userprofile.is_empty() {
-                // Windows fallback
-                PathBuf::from(userprofile)
-            } else {
+            if let Ok(userprofile) = std::env::var("USERPROFILE") {
+                if !userprofile.is_empty() {
+                    // Windows fallback
+                    return PathBuf::from(userprofile);
+                }
+            }
+            
+            {
                 // Ultimate fallback
                 PathBuf::from("/tmp")
             }
@@ -159,68 +195,104 @@ impl XdgPaths {
         // First check runtime env var (for testing)
         if let Ok(runtime_data_home) = std::env::var("XDG_DATA_HOME") {
             if !runtime_data_home.is_empty() {
-                return PathBuf::from(runtime_data_home).join("odx").join("prontodb");
+                let path = PathBuf::from(&runtime_data_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_DATA_HOME path, using fallback: {}", runtime_data_home);
             }
         }
         
-        // Then check RSB param for production
-        let xdg_data_home = param!("XDG_DATA_HOME", default: "");
-        if !xdg_data_home.is_empty() {
-            PathBuf::from(xdg_data_home).join("odx").join("prontodb")
-        } else {
-            home.join(".local").join("data").join("odx").join("prontodb")
+        // Then check stdlib env var for production
+        if let Ok(xdg_data_home) = std::env::var("XDG_DATA_HOME") {
+            if !xdg_data_home.is_empty() {
+                let path = PathBuf::from(&xdg_data_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_DATA_HOME env var, using fallback: {}", xdg_data_home);
+            }
         }
+        
+        home.join(".local").join("data").join("odx").join("prontodb")
     }
 
     fn get_config_dir(home: &Path) -> PathBuf {
         // First check runtime env var (for testing)
         if let Ok(runtime_config_home) = std::env::var("XDG_CONFIG_HOME") {
             if !runtime_config_home.is_empty() {
-                return PathBuf::from(runtime_config_home).join("odx").join("prontodb");
+                let path = PathBuf::from(&runtime_config_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_CONFIG_HOME path, using fallback: {}", runtime_config_home);
             }
         }
         
-        // Then check RSB param for production
-        let xdg_config_home = param!("XDG_CONFIG_HOME", default: "");
-        if !xdg_config_home.is_empty() {
-            PathBuf::from(xdg_config_home).join("odx").join("prontodb")
-        } else {
-            home.join(".local").join("etc").join("odx").join("prontodb")
+        // Then check stdlib env var for production
+        if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
+            if !xdg_config_home.is_empty() {
+                let path = PathBuf::from(&xdg_config_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_CONFIG_HOME env var, using fallback: {}", xdg_config_home);
+            }
         }
+        
+        home.join(".local").join("etc").join("odx").join("prontodb")
     }
 
     fn get_cache_dir(home: &Path) -> PathBuf {
         // First check runtime env var (for testing)
         if let Ok(runtime_cache_home) = std::env::var("XDG_CACHE_HOME") {
             if !runtime_cache_home.is_empty() {
-                return PathBuf::from(runtime_cache_home).join("odx").join("prontodb");
+                let path = PathBuf::from(&runtime_cache_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_CACHE_HOME path, using fallback: {}", runtime_cache_home);
             }
         }
         
-        // Then check RSB param for production
-        let xdg_cache_home = param!("XDG_CACHE_HOME", default: "");
-        if !xdg_cache_home.is_empty() {
-            PathBuf::from(xdg_cache_home).join("odx").join("prontodb")
-        } else {
-            home.join(".cache").join("odx").join("prontodb")
+        // Then check stdlib env var for production
+        if let Ok(xdg_cache_home) = std::env::var("XDG_CACHE_HOME") {
+            if !xdg_cache_home.is_empty() {
+                let path = PathBuf::from(&xdg_cache_home).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return path;
+                }
+                warn!("Detected malformed XDG_CACHE_HOME env var, using fallback: {}", xdg_cache_home);
+            }
         }
+        
+        home.join(".cache").join("odx").join("prontodb")
     }
 
     fn get_runtime_dir() -> Option<PathBuf> {
         // First check runtime env var (for testing)
         if let Ok(runtime_runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
             if !runtime_runtime_dir.is_empty() {
-                return Some(PathBuf::from(runtime_runtime_dir).join("odx").join("prontodb"));
+                let path = PathBuf::from(&runtime_runtime_dir).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return Some(path);
+                }
+                warn!("Detected malformed XDG_RUNTIME_DIR path, skipping: {}", runtime_runtime_dir);
             }
         }
         
-        // Then check RSB param for production
-        let runtime_dir = param!("XDG_RUNTIME_DIR", default: "");
-        if !runtime_dir.is_empty() {
-            Some(PathBuf::from(runtime_dir).join("odx").join("prontodb"))
-        } else {
-            None
+        // Then check stdlib env var for production
+        if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            if !runtime_dir.is_empty() {
+                let path = PathBuf::from(&runtime_dir).join("odx").join("prontodb");
+                if validate_path_safety(&path).is_ok() {
+                    return Some(path);
+                }
+                warn!("Detected malformed XDG_RUNTIME_DIR env var, skipping: {}", runtime_dir);
+            }
         }
+        
+        None
     }
 }
 
@@ -340,5 +412,42 @@ mod tests {
         // Verify we can get string paths for env vars
         assert!(!test_xdg.home_str().is_empty());
         assert!(!test_xdg.db_path_str().is_empty());
+    }
+
+    #[test]
+    fn test_path_validation_safety() {
+        use std::path::PathBuf;
+        
+        // Valid paths should pass
+        assert!(validate_path_safety(&PathBuf::from("/tmp/valid/path")).is_ok());
+        assert!(validate_path_safety(&PathBuf::from("/home/user/.cache")).is_ok());
+        
+        // Malformed shell expansion should be detected
+        assert!(validate_path_safety(&PathBuf::from("${XDG_TMP:-")).is_err());
+        assert!(validate_path_safety(&PathBuf::from("/tmp/${XDG_CACHE_HOME:-")).is_err());
+        
+        // Literal shell expansions should be detected
+        assert!(validate_path_safety(&PathBuf::from("/path/${XDG_DATA_HOME}/test")).is_err());
+        assert!(validate_path_safety(&PathBuf::from("${HOME}/docs")).is_err());
+        
+        // Properly expanded paths should be fine
+        assert!(validate_path_safety(&PathBuf::from("/home/user/.local/data")).is_ok());
+    }
+
+    #[test]
+    fn test_safe_directory_creation() {
+        use tempfile::TempDir;
+        
+        let temp_dir = TempDir::new().unwrap();
+        
+        // Safe path should work
+        let safe_path = temp_dir.path().join("test_dir");
+        assert!(safe_create_dir_all(&safe_path).is_ok());
+        assert!(safe_path.exists());
+        
+        // Malformed path should be rejected
+        let malformed_path = temp_dir.path().join("${XDG_TMP:-malformed");
+        assert!(safe_create_dir_all(&malformed_path).is_err());
+        assert!(!malformed_path.exists());
     }
 }

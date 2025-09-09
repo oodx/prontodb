@@ -88,8 +88,8 @@ $PRONTODB set "app.cache.ttl" "3600" || log_error "Dot addressing set failed"
 HOST=$($PRONTODB get "app.config.database_host")
 [[ "$HOST" == "localhost" ]] || log_error "Dot addressing get failed"
 
-# Test keys command
-KEYS=$($PRONTODB keys "app.config")
+# Test keys command with project and namespace
+KEYS=$($PRONTODB keys -p app -n config)
 echo "$KEYS" | grep -q "database_host" || log_error "Keys command failed"
 echo "$KEYS" | grep -q "database_port" || log_error "Keys command failed"
 
@@ -104,7 +104,7 @@ log_success "Discovery commands working"
 
 # Test 4: TTL Cache Creation
 log_test "TTL cache creation"
-$PRONTODB create-cache "sessions.cache" 60 || log_error "TTL cache creation failed"
+$PRONTODB create-cache "sessions.cache" "timeout=60" || log_error "TTL cache creation failed"
 $PRONTODB set "sessions.cache.user123" "active" || log_error "TTL cache set failed"
 CACHE_VAL=$($PRONTODB get "sessions.cache.user123")
 [[ "$CACHE_VAL" == "active" ]] || log_error "TTL cache get failed"
@@ -172,12 +172,12 @@ log_test "Install command"
 mkdir -p "$INSTALL_DIR"
 $PRONTODB install --target "$INSTALL_DIR/prontodb" --force || log_error "Install command failed"
 
-# Verify installation
-[[ -f "$INSTALL_DIR/prontodb" ]] || log_error "Binary not installed"
-[[ -x "$INSTALL_DIR/prontodb" ]] || log_error "Binary not executable"
+# Verify installation (install creates a directory structure)
+[[ -f "$INSTALL_DIR/prontodb/prontodb" ]] || log_error "Binary not installed"
+[[ -x "$INSTALL_DIR/prontodb/prontodb" ]] || log_error "Binary not executable"
 
 # Test installed binary
-"$INSTALL_DIR/prontodb" --version || log_error "Installed binary not working"
+"$INSTALL_DIR/prontodb/prontodb" help >/dev/null || log_error "Installed binary not working"
 
 log_success "Install command working"
 
@@ -191,9 +191,12 @@ mkdir -p "$BACKUP_DIR"
 $PRONTODB set "backup.test.key1" "value1" || log_error "Backup test data set failed"
 $PRONTODB set "backup.test.key2" "value2" || log_error "Backup test data set failed"
 
-# Create backup
-BACKUP_FILE="$BACKUP_DIR/test-backup.tar.gz"
-$PRONTODB backup --output "$BACKUP_FILE" --quiet || log_error "Backup creation failed"
+# Create backup - use directory only, let backup command name the file
+$PRONTODB backup --output "$BACKUP_DIR" --quiet || log_error "Backup creation failed"
+
+# Find the created backup file
+BACKUP_FILE=$(ls "$BACKUP_DIR"/prontodb-backup-*.tar.gz | head -1)
+[[ -n "$BACKUP_FILE" ]] || log_error "Backup file not found"
 
 # Verify backup file exists
 [[ -f "$BACKUP_FILE" ]] || log_error "Backup file not created"
@@ -260,7 +263,16 @@ $PRONTODB --version || log_error "Version flag failed"
 $PRONTODB -v || log_error "Version short flag failed"
 log_success "Version command working"
 
-# Test 13: Performance Test (basic)
+# Test 13: XDG Directory Validation
+log_test "XDG directory validation (no malformed directories)"
+
+# Check for malformed XDG directories
+MALFORMED_DIRS=$(find . -name "\${*" -type d 2>/dev/null || true)
+[[ -z "$MALFORMED_DIRS" ]] || log_error "Malformed XDG directories found: $MALFORMED_DIRS"
+
+log_success "XDG directory validation passed"
+
+# Test 14: Performance Test (basic)
 log_test "Basic performance test"
 
 # Set/get 100 keys rapidly
