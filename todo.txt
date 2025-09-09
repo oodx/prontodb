@@ -5,4 +5,10 @@
 
 📋 REMAINING:
 - RSB param! macro temporarily disabled due to defect (needs fix in RSB library)
-- Monitor for any XDG folder creation issues in project root
+
+🐛 IDENTIFIED RSB BUG:
+- RSB's expand_vars() in context.rs doesn't handle ${VAR:-default} syntax
+- Line 334: set_var("XDG_TMP", &expand_vars("${XDG_TMP:-$HOME/.cache/tmp}"));
+- This causes literal "${XDG_TMP:-" folder creation in project root
+- Workaround: Manually delete the folder when it appears
+- Fix needed in RSB: Update expand() to handle :- default value syntax
