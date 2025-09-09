@@ -51,6 +51,11 @@ if ! cargo build --release; then
     exit 1
 fi
 
+# Clean up RSB's malformed XDG directory bug
+if [ -d "${ROOT_DIR}/\${XDG_TMP:-" ]; then
+    rm -rf "${ROOT_DIR}/\${XDG_TMP:-"
+fi
+
 # Check if binary was created
 if [ ! -f "$ROOT_DIR/target/release/${DEPLOYABLE}" ]; then
     ceremony_msg "❌ Binary not found at target/release/${DEPLOYABLE}" "error"
