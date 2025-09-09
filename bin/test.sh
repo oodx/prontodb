@@ -2,6 +2,8 @@
 # ProntoDB Comprehensive UAT Test Suite
 # Tests all functionality including cursor support, multi-user, and lifecycle commands
 
+
+#TODO: IMPORTANT THIS FILE WAS MOVED FROM PROJECT ROOT TO BIN, PATHS NEED UPDATING!
 set -e  # Exit on any error
 
 # Colors for output
