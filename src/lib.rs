@@ -1,8 +1,9 @@
 // ProntoDB MVP Library
 pub mod addressing;
 pub mod api;
-pub mod backup;
+pub mod commands;
 pub mod cursor;
+pub mod cursor_cache;
 pub mod dispatcher;
 pub mod storage;
 pub mod xdg;
@@ -12,8 +13,9 @@ pub mod xdg;
 
 // Re-export key types for convenience  
 pub use addressing::Address;
-pub use backup::{BackupManager, BackupResult, BackupError};
+pub use commands::backup::{BackupResult, BackupError, BackupConfig};
 pub use cursor::{CursorData, CursorManager};
+pub use cursor_cache::CursorCache;
 pub use storage::Storage;
 pub use xdg::XdgPaths;
 
@@ -94,6 +96,52 @@ pub fn do_admin(args: rsb::args::Args) -> i32 {
     dispatcher::dispatch(vec_args)
 }
 
+pub fn do_noop(args: rsb::args::Args) -> i32 {
+    use crate::cursor_cache::CursorCache;
+    
+    let arg_list = args.all();
+    let mut user: Option<String> = None;
+    let mut cursor_db: Option<String> = None;
+    let mut i = 0;
+    
+    // Parse arguments and flags
+    while i < arg_list.len() {
+        if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+            user = Some(arg_list[i + 1].clone());
+            i += 2;
+        } else if arg_list[i] == "--cursor" && i + 1 < arg_list.len() {
+            cursor_db = Some(arg_list[i + 1].clone());
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    
+    // If --cursor was provided, update the cache
+    if let Some(ref database) = cursor_db {
+        let cache = CursorCache::new();
+        let cache_user = match user.as_deref() {
+            Some(u) if u != "default" => Some(u),
+            _ => None,
+        };
+        
+        match cache.set_cursor(database, cache_user) {
+            Ok(()) => {
+                let user_display = user.as_deref().unwrap_or("default");
+                println!("Cursor set to '{}' for user '{}'", database, user_display);
+                0
+            }
+            Err(e) => {
+                eprintln!("noop: Failed to set cursor: {}", e);
+                1
+            }
+        }
+    } else {
+        // No cursor flag provided, just do nothing (no-operation)
+        0
+    }
+}
+
 pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("ProntoDB - Fast namespaced key-value store with TTL support");
     println!();
@@ -147,14 +195,14 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("  prontodb set myapp.config.api_key__prod \"secret123\"");
     println!();
     println!("  # Use cursors for multi-database workflows");
-    println!("  prontodb cursor set staging /path/to/staging.db");
-    println!("  prontodb cursor set prod /path/to/production.db");
+    println!("  prontodb cursor set staging /path/to/staging.prdb");
+    println!("  prontodb cursor set prod /path/to/production.prdb");
     println!("  prontodb --cursor staging set app.debug true");
     println!("  prontodb --cursor prod set app.debug false");
     println!();
     println!("  # Multi-user environments");
-    println!("  prontodb --user alice cursor set dev /alice/dev.db");
-    println!("  prontodb --user bob cursor set dev /bob/dev.db");
+    println!("  prontodb --user alice cursor set dev /alice/dev.prdb");
+    println!("  prontodb --user bob cursor set dev /bob/dev.prdb");
     println!("  prontodb --user alice --cursor dev set config.key value");
     println!();
     println!("  # Retrieve and check exit codes");
@@ -175,131 +223,92 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
 }
 
 pub fn do_cursor(args: rsb::args::Args) -> i32 {
-    let mut vec_args = vec!["prontodb".to_string(), "cursor".to_string()];
-    vec_args.extend(args.all().iter().cloned());
+    use crate::cursor_cache::CursorCache;
     
-    // Parse cursor subcommand
-    if vec_args.len() < 3 {
-        eprintln!("cursor: Missing subcommand");
-        eprintln!("Usage: prontodb cursor <set|list|active|delete> [arguments]");
+    let arg_list = args.all();
+    
+    // Note: --user is handled by the global flag system, so we only get positional args here
+    if arg_list.is_empty() {
+        eprintln!("cursor: Missing subcommand or database name");
+        eprintln!("Usage: prontodb [--user <user>] cursor <database_name>");
+        eprintln!("   or: prontodb [--user <user>] cursor list");
+        eprintln!("   or: prontodb [--user <user>] cursor clear");
         return 1;
     }
     
-    let subcommand = vec_args[2].clone();
-    let cursor_manager = CursorManager::new();
+    let cache = CursorCache::new();
     
-    // Parse global flags for user context
-    let mut user = "default".to_string();
-    let mut i = 3;
-    while i < vec_args.len() {
-        if vec_args[i] == "--user" && i + 1 < vec_args.len() {
-            user = vec_args[i + 1].clone();
-            vec_args.remove(i);  // Remove --user
-            vec_args.remove(i);  // Remove value (index doesn't change after first remove)
-        } else {
-            i += 1;
-        }
-    }
-    
-    match subcommand.as_str() {
-        "set" => {
-            if vec_args.len() < 5 {
-                eprintln!("cursor set: Missing arguments");
-                eprintln!("Usage: prontodb cursor set <name> <database_path> [--user <user>]");
-                return 1;
+    match arg_list[0].as_str() {
+        "list" => {
+            let cursors = cache.list_all_cursors();
+            if cursors.is_empty() {
+                println!("No cursor cache found");
+            } else {
+                println!("Cached database selections:");
+                for (user_name, database) in cursors {
+                    println!("  {}: {}", user_name, database);
+                }
             }
-            
-            let cursor_name = &vec_args[3];
-            let db_path = std::path::PathBuf::from(&vec_args[4]);
-            
-            cursor_manager.set_cursor(cursor_name, db_path.clone(), &user);
-            println!("Cursor '{}' set to '{}' for user '{}'", cursor_name, db_path.display(), user);
             0
         }
         
-        "list" => {
-            match cursor_manager.list_cursors(&user) {
-                Ok(cursors) => {
-                    if cursors.is_empty() {
-                        println!("No cursors found for user '{}'", user);
-                    } else {
-                        println!("Cursors for user '{}':", user);
-                        for (name, cursor_data) in cursors {
-                            println!("  {}: {} (created: {})", 
-                                   name, 
-                                   cursor_data.database_path.display(),
-                                   cursor_data.created_at);
-                            if let Some(ref project) = cursor_data.default_project {
-                                println!("    Default project: {}", project);
-                            }
-                            if let Some(ref namespace) = cursor_data.default_namespace {
-                                println!("    Default namespace: {}", namespace);
-                            }
-                        }
-                    }
-                    0
+        "clear" => {
+            // Parse --user flag from remaining args since RSB doesn't handle global flags here
+            let mut user: Option<String> = None;
+            let mut i = 1;
+            while i < arg_list.len() {
+                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+                    user = Some(arg_list[i + 1].clone());
+                    break;
                 }
-                Err(e) => {
-                    eprintln!("cursor list: Failed to list cursors: {}", e);
-                    1
-                }
-            }
-        }
-        
-        "active" => {
-            match cursor_manager.get_active_cursor(&user) {
-                Ok(Some(cursor)) => {
-                    println!("Active cursor for user '{}':", user);
-                    println!("  Database: {}", cursor.database_path.display());
-                    if let Some(ref project) = cursor.default_project {
-                        println!("  Default project: {}", project);
-                    }
-                    if let Some(ref namespace) = cursor.default_namespace {
-                        println!("  Default namespace: {}", namespace);
-                    }
-                    println!("  Created: {}", cursor.created_at);
-                    0
-                }
-                Ok(None) => {
-                    println!("No active cursor for user '{}'", user);
-                    2
-                }
-                Err(e) => {
-                    eprintln!("cursor active: Failed to get active cursor: {}", e);
-                    1
-                }
-            }
-        }
-        
-        "delete" => {
-            if vec_args.len() < 4 {
-                eprintln!("cursor delete: Missing cursor name");
-                eprintln!("Usage: prontodb cursor delete <name> [--user <user>]");
-                return 1;
+                i += 1;
             }
             
-            let cursor_name = &vec_args[3];
-            
-            match cursor_manager.delete_cursor(cursor_name, &user) {
-                Ok(true) => {
-                    println!("Cursor '{}' deleted for user '{}'", cursor_name, user);
+            let cache_user = match user.as_deref() {
+                Some(u) if u != "default" => Some(u),
+                _ => None,
+            };
+            match cache.clear_cursor(cache_user) {
+                Ok(()) => {
+                    let user_display = user.as_deref().unwrap_or("default");
+                    println!("Cursor cache cleared for user '{}'", user_display);
                     0
                 }
-                Ok(false) => {
-                    eprintln!("cursor delete: Cursor '{}' not found for user '{}'", cursor_name, user);
-                    2
-                }
                 Err(e) => {
-                    eprintln!("cursor delete: Failed to delete cursor: {}", e);
+                    eprintln!("cursor clear: Failed to clear cursor cache: {}", e);
                     1
                 }
             }
         }
         
-        _ => {
-            eprintln!("cursor: Unknown subcommand '{}'", subcommand);
-            eprintln!("Usage: prontodb cursor <set|list|active|delete> [arguments]");
-            1
+        database_name => {
+            // Parse --user flag from remaining args since RSB doesn't handle global flags here
+            let mut user: Option<String> = None;
+            let mut i = 1;
+            while i < arg_list.len() {
+                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+                    user = Some(arg_list[i + 1].clone());
+                    break;
+                }
+                i += 1;
+            }
+            
+            // Set cursor to database name
+            let cache_user = match user.as_deref() {
+                Some(u) if u != "default" => Some(u),
+                _ => None,
+            };
+            match cache.set_cursor(database_name, cache_user) {
+                Ok(()) => {
+                    let user_display = user.as_deref().unwrap_or("default");
+                    println!("Global cursor set to '{}' for user '{}'", database_name, user_display);
+                    0
+                }
+                Err(e) => {
+                    eprintln!("cursor: Failed to set cursor: {}", e);
+                    1
+                }
+            }
         }
     }
 }

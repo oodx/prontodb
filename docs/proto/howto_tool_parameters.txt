@@ -1,0 +1,333 @@
+COMPLETE TOOL PARAMETER REFERENCE
+=================================
+
+PURPOSE: Agents forget available parameters - this is the comprehensive reference
+
+TASK TOOL PARAMETERS:
+```
+<antml:invoke name="Task">
+<antml:parameter name="subagent_type">[REQUIRED] Agent type to use</antml:parameter>
+<antml:parameter name="description">[REQUIRED] Short 3-5 word task description</antml:parameter>
+<antml:parameter name="prompt">[REQUIRED] Detailed task instructions</antml:parameter>
+</antml:invoke>
+```
+
+BASH TOOL PARAMETERS:
+```
+<antml:invoke name="Bash">
+<antml:parameter name="command">[REQUIRED] Command to execute</antml:parameter>
+<antml:parameter name="description">[OPTIONAL] What command does in 5-10 words</antml:parameter>
+<antml:parameter name="run_in_background">[OPTIONAL] true/false for background execution</antml:parameter>
+<antml:parameter name="timeout">[OPTIONAL] Timeout in milliseconds (max 600000)</antml:parameter>
+</antml:invoke>
+
+// For background processes, use these to monitor:
+<antml:invoke name="BashOutput">
+<antml:parameter name="bash_id">[REQUIRED] Shell ID from background bash</antml:parameter>
+<antml:parameter name="filter">[OPTIONAL] Regex filter for output lines</antml:parameter>
+</antml:invoke>
+
+<antml:invoke name="KillBash">
+<antml:parameter name="shell_id">[REQUIRED] Shell ID to terminate</antml:parameter>
+</antml:invoke>
+```
+
+BASH ENVIRONMENT NOTES:
+- Persistent shell session across conversation
+- Inherits user's profile, PATH, aliases, environment variables
+- Working directory and env vars persist between calls
+- Background processes return shell_id for monitoring
+
+GREP TOOL PARAMETERS:
+```
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">[REQUIRED] Regex pattern to search</antml:parameter>
+<antml:parameter name="path">[OPTIONAL] Directory/file to search</antml:parameter>
+<antml:parameter name="glob">[OPTIONAL] File pattern filter (*.js, *.py)</antml:parameter>
+<antml:parameter name="type">[OPTIONAL] File type (js, py, rust, go)</antml:parameter>
+<antml:parameter name="output_mode">[OPTIONAL] content/files_with_matches/count</antml:parameter>
+<antml:parameter name="-i">[OPTIONAL] Case insensitive (true/false)</antml:parameter>
+<antml:parameter name="-A">[OPTIONAL] Lines after match (requires content mode)</antml:parameter>
+<antml:parameter name="-B">[OPTIONAL] Lines before match (requires content mode)</antml:parameter>
+<antml:parameter name="-C">[OPTIONAL] Lines before AND after match</antml:parameter>
+<antml:parameter name="-n">[OPTIONAL] Show line numbers (requires content mode)</antml:parameter>
+<antml:parameter name="head_limit">[OPTIONAL] Limit output to N entries</antml:parameter>
+<antml:parameter name="multiline">[OPTIONAL] Enable multiline matching</antml:parameter>
+</antml:invoke>
+```
+
+READ TOOL PARAMETERS:
+```
+<antml:invoke name="Read">
+<antml:parameter name="file_path">[REQUIRED] Absolute path to file</antml:parameter>
+<antml:parameter name="offset">[OPTIONAL] Line number to start reading from</antml:parameter>
+<antml:parameter name="limit">[OPTIONAL] Number of lines to read</antml:parameter>
+</antml:invoke>
+```
+
+EDIT TOOL PARAMETERS:
+```
+<antml:invoke name="Edit">
+<antml:parameter name="file_path">[REQUIRED] Absolute path to file</antml:parameter>
+<antml:parameter name="old_string">[REQUIRED] Text to replace</antml:parameter>
+<antml:parameter name="new_string">[REQUIRED] Replacement text</antml:parameter>
+<antml:parameter name="replace_all">[OPTIONAL] Replace all occurrences (true/false)</antml:parameter>
+</antml:invoke>
+```
+
+MULTIEDIT TOOL PARAMETERS:
+```
+<antml:invoke name="MultiEdit">
+<antml:parameter name="file_path">[REQUIRED] Absolute path to file</antml:parameter>
+<antml:parameter name="edits">[REQUIRED] Array of edit objects:
+  - old_string: [REQUIRED] Text to replace
+  - new_string: [REQUIRED] Replacement text  
+  - replace_all: [OPTIONAL] Replace all occurrences
+</antml:parameter>
+</antml:invoke>
+```
+
+WRITE TOOL PARAMETERS:
+```
+<antml:invoke name="Write">
+<antml:parameter name="file_path">[REQUIRED] Absolute path to file</antml:parameter>
+<antml:parameter name="content">[REQUIRED] File content</antml:parameter>
+</antml:invoke>
+```
+
+GLOB TOOL PARAMETERS:
+```
+<antml:invoke name="Glob">
+<antml:parameter name="pattern">[REQUIRED] Glob pattern (**/*.js, src/**/*.ts)</antml:parameter>
+<antml:parameter name="path">[OPTIONAL] Directory to search (omit for current)</antml:parameter>
+</antml:invoke>
+```
+
+WEBFETCH TOOL PARAMETERS:
+```
+<antml:invoke name="WebFetch">
+<antml:parameter name="url">[REQUIRED] URL to fetch</antml:parameter>
+<antml:parameter name="prompt">[REQUIRED] What to extract from page</antml:parameter>
+</antml:invoke>
+```
+
+WEBSEARCH TOOL PARAMETERS:
+```
+<antml:invoke name="WebSearch">
+<antml:parameter name="query">[REQUIRED] Search query</antml:parameter>
+<antml:parameter name="allowed_domains">[OPTIONAL] Array of allowed domains</antml:parameter>
+<antml:parameter name="blocked_domains">[OPTIONAL] Array of blocked domains</antml:parameter>
+</antml:invoke>
+```
+
+BACKGROUND MONITORING TOOLS:
+```
+<antml:invoke name="BashOutput">
+<antml:parameter name="bash_id">[REQUIRED] Shell ID to monitor</antml:parameter>
+<antml:parameter name="filter">[OPTIONAL] Regex filter for output</antml:parameter>
+</antml:invoke>
+
+<antml:invoke name="KillBash">
+<antml:parameter name="shell_id">[REQUIRED] Shell ID to terminate</antml:parameter>
+</antml:invoke>
+```
+
+COMMON MISTAKES AGENTS MAKE:
+- Forgetting optional parameters that improve results
+- Not using background execution for long tasks
+- Missing context parameters (-A, -B, -C) in Grep
+- Not specifying output_mode in Grep for better results
+- Forgetting replace_all for bulk changes
+- Not using glob/type filters to narrow search scope
+
+GREP CONTEXT PARAMETERS EXAMPLES:
+```
+// Find function definitions with surrounding code
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">function calculateTotal</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-A">5</antml:parameter>
+<antml:parameter name="-B">2</antml:parameter>
+<antml:parameter name="-n">true</antml:parameter>
+</antml:invoke>
+
+// Find error messages with full context
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">ERROR:</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-C">3</antml:parameter>
+<antml:parameter name="glob">*.log</antml:parameter>
+</antml:invoke>
+```
+
+REPLACE_ALL EXAMPLES:
+```
+// Rename variable across entire file
+<antml:invoke name="Edit">
+<antml:parameter name="file_path">/path/to/file.js</antml:parameter>
+<antml:parameter name="old_string">oldVariableName</antml:parameter>
+<antml:parameter name="new_string">newVariableName</antml:parameter>
+<antml:parameter name="replace_all">true</antml:parameter>
+</antml:invoke>
+
+// Update all import statements
+<antml:invoke name="Edit">
+<antml:parameter name="file_path">/path/to/component.ts</antml:parameter>
+<antml:parameter name="old_string">from './old-utils'</antml:parameter>
+<antml:parameter name="new_string">from './new-utils'</antml:parameter>
+<antml:parameter name="replace_all">true</antml:parameter>
+</antml:invoke>
+
+// Multiple replacements in one operation
+<antml:invoke name="MultiEdit">
+<antml:parameter name="file_path">/path/to/config.js</antml:parameter>
+<antml:parameter name="edits">[
+  {
+    "old_string": "localhost:3000",
+    "new_string": "production.com",
+    "replace_all": true
+  },
+  {
+    "old_string": "development",
+    "new_string": "production", 
+    "replace_all": true
+  }
+]</antml:parameter>
+</antml:invoke>
+```
+
+ADVANCED GREP FILTERING:
+```
+// Search only JavaScript files for React hooks
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">use[A-Z]\\w+</antml:parameter>
+<antml:parameter name="type">js</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-n">true</antml:parameter>
+</antml:invoke>
+
+// Find TODOs in specific file types only
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">TODO|FIXME|HACK</antml:parameter>
+<antml:parameter name="glob">*.{js,ts,tsx}</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-C">1</antml:parameter>
+</antml:invoke>
+```
+
+USER-PROVIDED TOOL EFFECTIVENESS:
+```
+// When user provides paths/files - USE THEM EXACTLY
+User says: "check /home/user/project/config.yaml"
+CORRECT:
+<antml:invoke name="Read">
+<antml:parameter name="file_path">/home/user/project/config.yaml</antml:parameter>
+</antml:invoke>
+
+// When user provides specific search terms - USE EXACTLY
+User says: "find all instances of 'AuthService'"
+CORRECT:
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">AuthService</antml:parameter>
+<antml:parameter name="output_mode">files_with_matches</antml:parameter>
+</antml:invoke>
+
+// When user mentions file types - FILTER APPROPRIATELY
+User says: "search JavaScript files for errors"
+CORRECT:
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">error|Error|ERROR</antml:parameter>
+<antml:parameter name="type">js</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-n">true</antml:parameter>
+</antml:invoke>
+
+// When user wants to see context - USE CONTEXT PARAMS
+User says: "show me the error and surrounding code"
+CORRECT:
+<antml:invoke name="Grep">
+<antml:parameter name="pattern">throw new Error</antml:parameter>
+<antml:parameter name="output_mode">content</antml:parameter>
+<antml:parameter name="-C">5</antml:parameter>
+<antml:parameter name="-n">true</antml:parameter>
+</antml:invoke>
+
+// When user provides commands to run - USE BASH WITH DESCRIPTION
+User says: "run npm test"
+CORRECT:
+<antml:invoke name="Bash">
+<antml:parameter name="command">npm test</antml:parameter>
+<antml:parameter name="description">Run test suite as requested</antml:parameter>
+</antml:invoke>
+
+// When user mentions long-running tasks - USE BACKGROUND
+User says: "build the project"
+CORRECT:
+<antml:invoke name="Bash">
+<antml:parameter name="command">npm run build</antml:parameter>
+<antml:parameter name="description">Build project in background</antml:parameter>
+<antml:parameter name="run_in_background">true</antml:parameter>
+</antml:invoke>
+```
+
+LISTEN FOR USER HINTS:
+- "all instances" = use replace_all
+- "surrounding code" = use -C parameter  
+- "just the files" = use files_with_matches mode
+- "with line numbers" = use -n parameter
+- "case insensitive" = use -i parameter
+- "JavaScript/Python files" = use type parameter
+- "in src folder" = use path parameter
+- "build/test/install" = likely needs background execution
+
+TODOWRITE TOOL PARAMETERS (CRITICAL - AGENTS FORGET THIS):
+```
+<antml:invoke name="TodoWrite">
+<antml:parameter name="todos">[
+  {
+    "content": "Analyze authentication system",
+    "activeForm": "Analyzing authentication system", 
+    "status": "in_progress"
+  },
+  {
+    "content": "Implement security fixes",
+    "activeForm": "Implementing security fixes",
+    "status": "pending"
+  }
+]</antml:parameter>
+</antml:invoke>
+```
+
+NOTEBOOKEDIT PARAMETERS (FOR .ipynb FILES):
+```
+<antml:invoke name="NotebookEdit">
+<antml:parameter name="notebook_path">[REQUIRED] Absolute path to .ipynb file</antml:parameter>
+<antml:parameter name="new_source">[REQUIRED] Cell content</antml:parameter>
+<antml:parameter name="cell_id">[OPTIONAL] Specific cell ID to edit</antml:parameter>
+<antml:parameter name="cell_type">[OPTIONAL] code or markdown</antml:parameter>
+<antml:parameter name="edit_mode">[OPTIONAL] replace/insert/delete</antml:parameter>
+</antml:invoke>
+```
+
+CRITICAL AGENT WORKFLOW GAPS:
+1. **Status Updates**: Use TodoWrite to track multi-step tasks
+2. **Parallel Tool Calls**: Batch independent operations in one message
+3. **Error Recovery**: When tools fail, adjust parameters and retry
+4. **Context Preservation**: Pass findings between sequential operations
+5. **User Feedback**: Reference user-provided specifics exactly
+
+ORCHESTRATOR ANTI-PATTERNS TO AVOID:
+- Launching agents without clear success criteria
+- Not bridging context between agent outputs  
+- Forgetting to mark todos as in_progress/completed
+- Using sequential tools when parallel would be faster
+- Ignoring user-specified paths/terms/commands
+- Not monitoring background processes with BashOutput
+- Creating files when editing existing ones would work
+
+EFFECTIVE SUBAGENT PROMPTING:
+- "Based on findings from Agent X: [insert specific findings]"
+- "Focus specifically on these areas: [list from user]"
+- "Use this exact search term: [user-provided term]"
+- "Your output will be used by Agent Y for [specific purpose]"
+- "Report back when you find [specific success criteria]"

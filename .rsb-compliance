@@ -1,0 +1,49 @@
+# ProntoDB RSB Compliance Status
+# Amendment D: Eventual Compliance Paradigm (ECP) Documentation
+
+## Current Compliance Exceptions
+
+### 1. Manual std::env::var() usage (backup.rs lines 83-84, 151-152)
+**Exception**: Legacy environment variable handling
+**Reason**: Transitioning from existing code patterns during modular refactoring
+**Eventual Fix**: Replace with home_dir!() macro when available in RSB
+**Timeline**: Next RSB library update cycle
+
+### 2. Complex type signatures (BackupConfig, BackupResult)
+**Exception**: Amendment C (LAU) - Library abstraction patterns
+**Reason**: Providing clean abstraction for backup operations across different contexts
+**Eventual Fix**: Consider string-first alternatives or maintain as justified complexity
+**Timeline**: Architecture review phase
+
+### 3. Missing function ordinality naming (backup_database, list_backups, restore_backup)
+**Exception**: Public API consistency requirements
+**Reason**: External interface compatibility and clear semantic naming
+**Eventual Fix**: Internal helper functions can adopt ordinality, public API maintains clarity
+**Timeline**: Internal refactoring without breaking changes
+
+### 4. Manual error handling vs RSB validation macros
+**Exception**: Error type compatibility with existing codebase
+**Reason**: Maintaining consistency with storage layer and cursor management errors
+**Eventual Fix**: Adopt RSB validation patterns when error handling is standardized
+**Timeline**: Post-MVP error handling unification
+
+## Strong RSB Compliance Areas
+- ✅ RSB prelude integration and macro usage
+- ✅ Pre-dispatcher lifecycle pattern implementation
+- ✅ String-biased CLI argument parsing
+- ✅ Proper exit code handling (0, 1, 2)
+- ✅ Modular command architecture
+- ✅ bootstrap!/pre_dispatch!/dispatch! pattern usage
+
+## Overall Assessment
+**Current Score**: 6.6/10 (RedRover assessment)
+**Target Score**: 8.5/10 (allowing for justified complexity per Amendment C)
+**Status**: Progressive compliance with documented exceptions
+
+## Next Steps for Compliance Improvement
+1. Evaluate home_dir!() macro availability in RSB updates
+2. Review Amendment C applicability for type signatures
+3. Consider internal/external API separation for function naming
+4. Plan error handling standardization across codebase
+
+*This file serves as documentation under RSB Amendment D (ECP) for eventual compliance planning.*

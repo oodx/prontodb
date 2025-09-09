@@ -62,16 +62,36 @@ impl CursorData {
 #[derive(Debug)]
 pub struct CursorManager {
     xdg: XdgPaths,
-    cursor_dir: PathBuf,
+    cursor_dir: PathBuf,  // Legacy cursor directory for backward compatibility
 }
 
 impl CursorManager {
+    /// Extract database name from a database path for directory organization
+    /// This determines which database-scoped directory cursors should live in
+    fn extract_database_name(&self, db_path: &PathBuf) -> String {
+        // Strategy: Use the filename without extension as the database name
+        // For paths like /path/to/mydb.db -> "mydb"
+        // For paths like /path/to/custom.sqlite -> "custom"  
+        // For paths ending in standard main locations -> "main"
+        
+        if let Some(filename) = db_path.file_stem().and_then(|s| s.to_str()) {
+            // Special case: if this looks like a default XDG path, use "main"
+            if *db_path == self.xdg.get_db_path() || db_path.to_string_lossy().contains("/prontodb/main/pronto.main.prdb") {
+                return "main".to_string();
+            }
+            
+            filename.to_string()
+        } else {
+            // Fallback for edge cases where we can't extract a name
+            "main".to_string()
+        }
+    }
     /// Create new cursor manager
     pub fn new() -> Self {
         let xdg = XdgPaths::new();
-        let cursor_dir = xdg.data_dir.join("cursors");
+        let cursor_dir = xdg.data_dir.join("cursors");  // Legacy directory
         
-        // RSB directory validation
+        // RSB directory validation for legacy compatibility
         fs::create_dir_all(&cursor_dir).expect("Failed to create cursor directory");
         
         Self { xdg, cursor_dir }
@@ -87,8 +107,11 @@ impl CursorManager {
 
     /// Set a cursor to point to a specific database path
     pub fn set_cursor(&self, name: &str, database_path: PathBuf, user: &str) {
-        let cursor_data = CursorData::new(database_path, user.to_string());
-        let cursor_file = self.get_cursor_file_path(name, user);
+        let cursor_data = CursorData::new(database_path.clone(), user.to_string());
+        
+        // Determine database name and use database-scoped storage
+        let db_name = self.extract_database_name(&database_path);
+        let cursor_file = self.get_cursor_file_path_scoped(name, user, &db_name);
         
         let json_content = serde_json::to_string_pretty(&cursor_data)
             .expect("Failed to serialize cursor data");
@@ -106,29 +129,67 @@ impl CursorManager {
         project: Option<String>,
         namespace: Option<String>,
     ) {
-        let mut cursor_data = CursorData::new(database_path, user.to_string());
+        let mut cursor_data = CursorData::new(database_path.clone(), user.to_string());
         cursor_data.default_project = project;
         cursor_data.default_namespace = namespace;
         
-        let cursor_file = self.get_cursor_file_path(name, user);
+        // Determine database name and use database-scoped storage
+        let db_name = self.extract_database_name(&database_path);
+        let cursor_file = self.get_cursor_file_path_scoped(name, user, &db_name);
+        
         let json_content = serde_json::to_string_pretty(&cursor_data)
             .expect("Failed to serialize cursor data with defaults");
         fs::write(&cursor_file, json_content)
             .expect("Failed to write cursor file with defaults");
     }
 
-    /// Get cursor data for a named cursor
+    /// Get cursor data for a named cursor (with backward compatibility)
     pub fn get_cursor(&self, name: &str, user: &str) -> Result<CursorData, Box<dyn std::error::Error>> {
-        let cursor_file = self.get_cursor_file_path(name, user);
+        // Try to find cursor with backward compatibility
+        if let Some((cursor_file, _)) = self.find_cursor_file_with_fallback(name, user) {
+            let content = fs::read_to_string(&cursor_file)?;
+            let cursor_data: CursorData = serde_json::from_str(&content)?;
+            Ok(cursor_data)
+        } else {
+            Err(format!("Cursor '{}' not found for user '{}'", name, user).into())
+        }
+    }
+    
+    /// Find cursor file with backward compatibility
+    /// Returns (cursor_file_path, is_legacy) where is_legacy indicates if found in old location
+    fn find_cursor_file_with_fallback(&self, name: &str, user: &str) -> Option<(PathBuf, bool)> {
+        // First, try to find in database-scoped locations
+        // We need to check all possible database directories since we don't know which one
+        // This is expensive but necessary for backward compatibility
         
-        if !cursor_file.exists() {
-            return Err(format!("Cursor '{}' not found for user '{}'", name, user).into());
+        // Get all possible database directories
+        let data_dir_entries = match fs::read_dir(&self.xdg.data_dir) {
+            Ok(entries) => entries,
+            Err(_) => return None,
+        };
+        
+        for entry in data_dir_entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Some(db_name) = path.file_name().and_then(|n| n.to_str()) {
+                    // Skip the legacy cursors directory
+                    if db_name == "cursors" { continue; }
+                    
+                    let cursor_file = self.get_cursor_file_path_scoped(name, user, db_name);
+                    if cursor_file.exists() {
+                        return Some((cursor_file, false));  // Found in new location
+                    }
+                }
+            }
         }
         
-        let content = fs::read_to_string(&cursor_file)?;
-        let cursor_data: CursorData = serde_json::from_str(&content)?;
-        
-        Ok(cursor_data)
+        // Fallback: check legacy location
+        let legacy_cursor_file = self.get_cursor_file_path(name, user);
+        if legacy_cursor_file.exists() {
+            Some((legacy_cursor_file, true))  // Found in legacy location
+        } else {
+            None  // Not found anywhere
+        }
     }
 
     /// Get the active cursor (default cursor for user)
@@ -140,38 +201,65 @@ impl CursorManager {
         }
     }
 
-    /// List all cursors for a user
+    /// List all cursors for a user (searches both legacy and database-scoped locations)
     #[allow(dead_code)]
     pub fn list_cursors(&self, user: &str) -> Result<HashMap<String, CursorData>, Box<dyn std::error::Error>> {
         let mut cursors = HashMap::new();
         let user_suffix = if user == "default" { ".cursor".to_string() } else { format!(".{}.cursor", user) };
         
-        if !self.cursor_dir.exists() {
-            return Ok(cursors);
-        }
-        
-        for entry in fs::read_dir(&self.cursor_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            
-            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                if filename.ends_with(&user_suffix) {
-                    let cursor_name = if user == "default" {
-                        filename.strip_suffix(".cursor").unwrap_or(filename)
-                    } else {
-                        filename.strip_suffix(&format!(".{}.cursor", user)).unwrap_or(filename)
-                    };
-                    
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        if let Ok(cursor_data) = serde_json::from_str::<CursorData>(&content) {
-                            cursors.insert(cursor_name.to_string(), cursor_data);
+        // Search database-scoped locations first
+        if self.xdg.data_dir.exists() {
+            for entry in fs::read_dir(&self.xdg.data_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(db_name) = path.file_name().and_then(|n| n.to_str()) {
+                        // Skip the legacy cursors directory
+                        if db_name == "cursors" { continue; }
+                        
+                        let cursor_dir = path.join("cursors");
+                        if cursor_dir.exists() {
+                            self.scan_cursor_directory(&cursor_dir, user, &user_suffix, &mut cursors)?;
                         }
                     }
                 }
             }
         }
         
+        // Search legacy location
+        if self.cursor_dir.exists() {
+            self.scan_cursor_directory(&self.cursor_dir, user, &user_suffix, &mut cursors)?;
+        }
+        
         Ok(cursors)
+    }
+    
+    /// Helper method to scan a cursor directory and add found cursors to the map
+    fn scan_cursor_directory(&self, cursor_dir: &PathBuf, user: &str, user_suffix: &str, cursors: &mut HashMap<String, CursorData>) -> Result<(), Box<dyn std::error::Error>> {
+        for entry in fs::read_dir(cursor_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                if filename.ends_with(user_suffix) {
+                    let cursor_name = if user == "default" {
+                        filename.strip_suffix(".cursor").unwrap_or(filename)
+                    } else {
+                        filename.strip_suffix(&format!(".{}.cursor", user)).unwrap_or(filename)
+                    };
+                    
+                    // Only add if not already found (database-scoped takes precedence over legacy)
+                    if !cursors.contains_key(cursor_name) {
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(cursor_data) = serde_json::from_str::<CursorData>(&content) {
+                                cursors.insert(cursor_name.to_string(), cursor_data);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// List all cursors across all users (for admin purposes)
@@ -203,12 +291,11 @@ impl CursorManager {
         Ok(cursors)
     }
 
-    /// Delete a cursor
+    /// Delete a cursor (searches both legacy and database-scoped locations)
     #[allow(dead_code)]
     pub fn delete_cursor(&self, name: &str, user: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        let cursor_file = self.get_cursor_file_path(name, user);
-        
-        if cursor_file.exists() {
+        // Try to find cursor with fallback and delete it
+        if let Some((cursor_file, _)) = self.find_cursor_file_with_fallback(name, user) {
             fs::remove_file(&cursor_file)?;
             Ok(true)
         } else {
@@ -241,13 +328,118 @@ impl CursorManager {
         Ok(())
     }
 
-    /// Get cursor file path for name and user
+    /// Get cursor file path for name and user (legacy method - still used for backward compatibility)
     fn get_cursor_file_path(&self, name: &str, user: &str) -> PathBuf {
         if user == "default" {
             self.cursor_dir.join(format!("{}.cursor", name))
         } else {
             self.cursor_dir.join(format!("{}.{}.cursor", name, user))
         }
+    }
+    
+    /// Get cursor file path for name and user in database-scoped directory
+    fn get_cursor_file_path_scoped(&self, name: &str, user: &str, db_name: &str) -> PathBuf {
+        let db_cursor_dir = self.xdg.get_cursor_dir_with_name(db_name);
+        
+        // Ensure database cursor directory exists
+        if let Err(e) = fs::create_dir_all(&db_cursor_dir) {
+            eprintln!("Warning: Failed to create cursor directory {}: {}", db_cursor_dir.display(), e);
+            // Fall back to legacy path
+            return self.get_cursor_file_path(name, user);
+        }
+        
+        if user == "default" {
+            db_cursor_dir.join(format!("{}.cursor", name))
+        } else {
+            db_cursor_dir.join(format!("{}.{}.cursor", name, user))
+        }
+    }
+    
+    /// Migrate a legacy cursor to the new database-scoped structure
+    /// Returns true if migration was performed, false if no migration needed
+    pub fn migrate_legacy_cursor(&self, name: &str, user: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        // Check if cursor exists in legacy location
+        let legacy_file = self.get_cursor_file_path(name, user);
+        if !legacy_file.exists() {
+            return Ok(false);  // No legacy cursor to migrate
+        }
+        
+        // Read the legacy cursor data
+        let content = fs::read_to_string(&legacy_file)?;
+        let cursor_data: CursorData = serde_json::from_str(&content)?;
+        
+        // Determine database name from the cursor's database path
+        let db_name = self.extract_database_name(&cursor_data.database_path);
+        let new_file = self.get_cursor_file_path_scoped(name, user, &db_name);
+        
+        // Check if already exists in new location
+        if new_file.exists() {
+            // Already migrated, just clean up legacy file
+            fs::remove_file(&legacy_file)?;
+            return Ok(true);
+        }
+        
+        // Copy to new location
+        fs::write(&new_file, &content)?;
+        
+        // Remove legacy file
+        fs::remove_file(&legacy_file)?;
+        
+        Ok(true)
+    }
+    
+    /// Migrate all legacy cursors to database-scoped structure  
+    /// This is a convenience method to migrate all cursors for a user
+    #[allow(dead_code)]
+    pub fn migrate_all_legacy_cursors(&self, user: &str) -> Result<usize, Box<dyn std::error::Error>> {
+        let mut migrated_count = 0;
+        
+        // Read all files from legacy cursor directory
+        if !self.cursor_dir.exists() {
+            return Ok(0);  // No legacy directory
+        }
+        
+        for entry in fs::read_dir(&self.cursor_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                // Parse cursor name and user from filename
+                let (cursor_name, cursor_user) = if filename.ends_with(".cursor") {
+                    if filename.contains('.') && filename != ".cursor" {
+                        // Format: name.user.cursor or just name.cursor
+                        let parts: Vec<&str> = filename.rsplitn(3, '.').collect();
+                        if parts.len() == 3 && parts[0] == "cursor" {
+                            // name.user.cursor
+                            (parts[2], parts[1])
+                        } else if parts.len() == 2 && parts[0] == "cursor" {
+                            // name.cursor (default user)
+                            (parts[1], "default")
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;  // Not a cursor file
+                };
+                
+                // Only migrate cursors for the specified user
+                if cursor_user != user {
+                    continue;
+                }
+                
+                // Attempt migration
+                match self.migrate_legacy_cursor(cursor_name, cursor_user) {
+                    Ok(true) => migrated_count += 1,
+                    Ok(false) => {}, // Nothing to migrate
+                    Err(e) => eprintln!("Warning: Failed to migrate cursor {}.{}: {}", cursor_name, cursor_user, e),
+                }
+            }
+        }
+        
+        Ok(migrated_count)
     }
 }
 
@@ -261,7 +453,6 @@ impl Default for CursorManager {
 mod tests {
     use super::*;
     use crate::xdg::test_utils::TestXdg;
-    use tempfile::TempDir;
 
     #[test]
     fn test_cursor_data_creation() {
@@ -392,5 +583,87 @@ mod tests {
         // Try to delete again
         let deleted = cursor_manager.delete_cursor("temp", "alice").unwrap();
         assert!(!deleted);
+    }
+    
+    #[test]
+    fn test_database_scoped_cursor_storage() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        // Create cursors pointing to different databases
+        cursor_manager.set_cursor("prod", PathBuf::from("/path/to/production.db"), "alice");
+        cursor_manager.set_cursor("staging", PathBuf::from("/path/to/staging.db"), "alice");
+        cursor_manager.set_cursor("test", PathBuf::from("/path/to/test.db"), "alice");
+        
+        // Verify cursors are stored in database-scoped directories
+        let prod_cursor_file = test_xdg.paths.get_cursor_dir_with_name("production").join("prod.alice.cursor");
+        let staging_cursor_file = test_xdg.paths.get_cursor_dir_with_name("staging").join("staging.alice.cursor");
+        let test_cursor_file = test_xdg.paths.get_cursor_dir_with_name("test").join("test.alice.cursor");
+        
+        assert!(prod_cursor_file.exists(), "Production cursor should exist in production/cursors/");
+        assert!(staging_cursor_file.exists(), "Staging cursor should exist in staging/cursors/");
+        assert!(test_cursor_file.exists(), "Test cursor should exist in test/cursors/");
+        
+        // Verify they can be retrieved
+        let prod_cursor = cursor_manager.get_cursor("prod", "alice").unwrap();
+        let staging_cursor = cursor_manager.get_cursor("staging", "alice").unwrap();
+        let test_cursor = cursor_manager.get_cursor("test", "alice").unwrap();
+        
+        assert_eq!(prod_cursor.database_path, PathBuf::from("/path/to/production.db"));
+        assert_eq!(staging_cursor.database_path, PathBuf::from("/path/to/staging.db"));
+        assert_eq!(test_cursor.database_path, PathBuf::from("/path/to/test.db"));
+    }
+    
+    #[test]
+    fn test_extract_database_name() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        // Test various path formats
+        assert_eq!(cursor_manager.extract_database_name(&PathBuf::from("/path/to/myapp.db")), "myapp");
+        assert_eq!(cursor_manager.extract_database_name(&PathBuf::from("/path/to/staging.sqlite")), "staging");
+        assert_eq!(cursor_manager.extract_database_name(&PathBuf::from("/custom/production.db")), "production");
+        
+        // Test default main path
+        let main_path = test_xdg.paths.get_db_path();
+        assert_eq!(cursor_manager.extract_database_name(&main_path), "main");
+        
+        // Test edge case
+        assert_eq!(cursor_manager.extract_database_name(&PathBuf::from("/no/extension")), "extension");
+    }
+    
+    #[test] 
+    fn test_legacy_cursor_migration() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        // Create a cursor in legacy location (simulate old cursor)
+        let legacy_file = cursor_manager.get_cursor_file_path("legacy", "alice");
+        let cursor_data = CursorData::new(PathBuf::from("/path/to/myapp.db"), "alice".to_string());
+        let json_content = serde_json::to_string_pretty(&cursor_data).unwrap();
+        fs::create_dir_all(legacy_file.parent().unwrap()).unwrap();
+        fs::write(&legacy_file, &json_content).unwrap();
+        
+        // Verify it exists in legacy location
+        assert!(legacy_file.exists());
+        
+        // Verify backward compatibility - should be able to read it
+        let retrieved_cursor = cursor_manager.get_cursor("legacy", "alice").unwrap();
+        assert_eq!(retrieved_cursor.database_path, PathBuf::from("/path/to/myapp.db"));
+        
+        // Test migration
+        let migrated = cursor_manager.migrate_legacy_cursor("legacy", "alice").unwrap();
+        assert!(migrated, "Migration should have occurred");
+        
+        // Verify legacy file is gone
+        assert!(!legacy_file.exists(), "Legacy file should be removed after migration");
+        
+        // Verify new file exists in database-scoped location
+        let new_file = test_xdg.paths.get_cursor_dir_with_name("myapp").join("legacy.alice.cursor");
+        assert!(new_file.exists(), "Cursor should exist in database-scoped location");
+        
+        // Verify cursor can still be retrieved
+        let retrieved_cursor = cursor_manager.get_cursor("legacy", "alice").unwrap();
+        assert_eq!(retrieved_cursor.database_path, PathBuf::from("/path/to/myapp.db"));
     }
 }

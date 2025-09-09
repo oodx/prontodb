@@ -1,0 +1,69 @@
+AGENT ORCHESTRATION BEST PRACTICES
+===================================
+
+PROBLEM: Subagents idle because orchestrator doesn't engage properly
+
+ANTI-PATTERN (Causes Idling):
+- Fire and forget delegation
+- No intermediate engagement
+- Sequential batch processing
+- No context bridging between agents
+
+CORRECT PATTERN: Active Project Management
+
+PHASE 1: PARALLEL LAUNCH
+Launch multiple agents simultaneously for independent tasks:
+
+```
+<antml:function_calls>
+<antml:invoke name="Task">
+<antml:parameter name="subagent_type">general-purpose</antml:parameter>
+<antml:parameter name="description">Research phase</antml:parameter>
+<antml:parameter name="prompt">Analyze codebase for authentication patterns. Focus on finding existing implementations and dependencies.</antml:parameter>
+</antml:invoke>
+<antml:invoke name="Task">
+<antml:parameter name="subagent_type">#china, the summary chicken</antml:parameter>
+<antml:parameter name="description">Documentation review</antml:parameter>
+<antml:parameter name="prompt">Create summary of existing API documentation. Focus on security and auth-related endpoints.</antml:parameter>
+</antml:invoke>
+</antml:function_calls>
+```
+
+PHASE 2: ITERATIVE ENGAGEMENT
+Based on initial results, engage with follow-up tasks:
+
+```
+<antml:function_calls>
+<antml:invoke name="Task">
+<antml:parameter name="subagent_type">lucas, the blue knight engineer of bash</antml:parameter>
+<antml:parameter name="description">Implementation based on research</antml:parameter>
+<antml:parameter name="prompt">Based on Agent A's findings about existing auth patterns, create implementation plan. Use these specific patterns found: [insert findings]. Address these gaps identified: [insert gaps].</antml:parameter>
+</antml:invoke>
+</antml:function_calls>
+```
+
+PHASE 3: CROSS-AGENT VALIDATION
+Have agents review each other's work:
+
+```
+<antml:function_calls>
+<antml:invoke name="Task">
+<antml:parameter name="subagent_type">edgar, the lord captain of superhard</antml:parameter>
+<antml:parameter name="description">Security review</antml:parameter>
+<antml:parameter name="prompt">Review Lucas's implementation plan for security vulnerabilities. Focus on these areas identified by China: [insert areas]. Validate against these existing patterns: [insert patterns].</antml:parameter>
+</antml:invoke>
+</antml:function_calls>
+```
+
+KEY PRINCIPLES:
+- Use output from Agent A to inform Agent B's prompt
+- Provide explicit context bridging
+- Ask specific follow-up questions
+- Reference previous findings in new tasks
+- Create dependency chains with explicit handoffs
+- Monitor progress with TodoWrite tool
+
+EXAMPLE CONTEXT BRIDGING:
+"Based on findings X and Y from previous agent, now focus on Z"
+"Agent A identified these gaps: [list]. Address each specifically"
+"Use Agent A's output as input for your analysis"

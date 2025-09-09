@@ -2,7 +2,6 @@
 // These tests verify our fundamental assumptions work before building complex features
 
 use std::process::Command;
-use tempfile::TempDir;
 use prontodb::xdg::test_utils::TestXdg;
 
 /// Test basic binary can be executed
@@ -77,7 +76,7 @@ fn sanity_command_parsing_basic() {
         let output = Command::new("./target/debug/prontodb")
             .args(&args)
             .output()
-            .expect(&format!("Failed to execute: {:?}", args));
+            .unwrap_or_else(|_| panic!("Failed to execute: {:?}", args));
         
         // Sanity: doesn't crash with segfault etc
         assert!(
@@ -89,7 +88,7 @@ fn sanity_command_parsing_basic() {
         // Sanity: exit code is reasonable (0, 1, or 2)
         let code = output.status.code().unwrap();
         assert!(
-            code >= 0 && code <= 2,
+            (0..=2).contains(&code),
             "Command {:?} should use standard exit codes, got {}",
             args, code
         );
@@ -105,7 +104,7 @@ fn sanity_storage_module_basic() {
     let storage_result = prontodb::Storage::open(&test_xdg.paths.db_path);
     assert!(storage_result.is_ok(), "Should be able to create storage instance");
     
-    let storage = storage_result.unwrap();
+    let _storage = storage_result.unwrap();
     
     // Sanity: database file is created
     assert!(test_xdg.paths.db_path.exists(), "Database file should be created");
@@ -193,6 +192,65 @@ fn sanity_exit_codes_reasonable() {
     assert!(code != 2, "Incomplete command should not use MISS code");
 }
 
+/// Test database-scoped path structure
+#[test]
+fn sanity_database_scoped_paths() {
+    let test_xdg = TestXdg::new().expect("Failed to create test XDG environment");
+    
+    // Test that different databases use different directories
+    let main_db = test_xdg.paths.get_db_path_with_name("main");
+    let test_db = test_xdg.paths.get_db_path_with_name("test");
+    let staging_db = test_xdg.paths.get_db_path_with_name("staging");
+    
+    // Sanity: different databases use different paths
+    assert_ne!(main_db, test_db, "main and test databases should have different paths");
+    assert_ne!(main_db, staging_db, "main and staging databases should have different paths");
+    assert_ne!(test_db, staging_db, "test and staging databases should have different paths");
+    
+    // Sanity: paths follow database-scoped structure
+    assert!(main_db.to_string_lossy().contains("/main/pronto.main.prdb"), "main database should be in main directory");
+    assert!(test_db.to_string_lossy().contains("/test/pronto.test.prdb"), "test database should be in test directory");
+    assert!(staging_db.to_string_lossy().contains("/staging/pronto.staging.prdb"), "staging database should be in staging directory");
+    
+    // Test cursor directories are also scoped
+    let main_cursors = test_xdg.paths.get_cursor_dir_with_name("main");
+    let test_cursors = test_xdg.paths.get_cursor_dir_with_name("test");
+    
+    assert_ne!(main_cursors, test_cursors, "different databases should have different cursor dirs");
+    assert!(main_cursors.to_string_lossy().contains("/main/cursors"), "main cursors should be in main directory");
+    assert!(test_cursors.to_string_lossy().contains("/test/cursors"), "test cursors should be in test directory");
+}
+
+/// Test --database flag functionality at basic level
+#[test]
+fn sanity_database_flag_functionality() {
+    let test_xdg = TestXdg::new().expect("Failed to create test XDG environment");
+    let home = test_xdg.home_str();
+    
+    // Test help command with --database flag (should not affect help)
+    // Note: Global flag parsing might need fixes, but help should work
+    let output = Command::new("./target/debug/prontodb")
+        .args(["--database", "testdb", "help"])
+        .env("HOME", home)
+        .output()
+        .expect("failed to execute with database flag");
+    
+    // For now, just verify the command doesn't crash with the flag
+    assert!(output.status.code().is_some(), "Command should not crash with --database flag");
+    
+    // Test that database parameter validation works
+    for db_name in ["test", "staging", "prod", "dev", "db-1"] {
+        let output = Command::new("./target/debug/prontodb")
+            .args(["--database", db_name, "help"])
+            .env("HOME", home)
+            .output()
+            .unwrap_or_else(|_| panic!("Failed to execute with database name: {}", db_name));
+        
+        // Should not crash with valid database names
+        assert!(output.status.code().is_some(), "Command should not crash with database name: {}", db_name);
+    }
+}
+
 /// Test multi-instance isolation
 #[test]
 fn sanity_multi_instance_isolation() {
@@ -244,4 +302,58 @@ fn sanity_multi_instance_isolation() {
     // Sanity: both database files exist independently
     assert!(test_xdg1.paths.db_path.exists());
     assert!(test_xdg2.paths.db_path.exists());
+}
+
+/// Test database path structure functionality 
+#[test]
+fn sanity_database_data_isolation() {
+    let test_xdg = TestXdg::new().expect("Failed to create test XDG environment");
+    
+    // Test that database paths are properly scoped
+    let test_db_path = test_xdg.paths.get_db_path_with_name("test");
+    let staging_db_path = test_xdg.paths.get_db_path_with_name("staging"); 
+    let prod_db_path = test_xdg.paths.get_db_path_with_name("prod");
+    
+    // Verify database isolation at the path level
+    assert_ne!(test_db_path, staging_db_path, "test and staging databases should have different paths");
+    assert_ne!(test_db_path, prod_db_path, "test and prod databases should have different paths");
+    assert_ne!(staging_db_path, prod_db_path, "staging and prod databases should have different paths");
+    
+    // Verify proper database directory structure
+    assert!(test_db_path.to_string_lossy().contains("/test/"), "test database should be in test directory");
+    assert!(staging_db_path.to_string_lossy().contains("/staging/"), "staging database should be in staging directory");
+    assert!(prod_db_path.to_string_lossy().contains("/prod/"), "prod database should be in prod directory");
+    
+    // Test creating storage instances for different databases
+    let test_storage = prontodb::Storage::open(&test_db_path);
+    let staging_storage = prontodb::Storage::open(&staging_db_path);
+    
+    assert!(test_storage.is_ok(), "Should be able to create test database storage");
+    assert!(staging_storage.is_ok(), "Should be able to create staging database storage");
+    
+    // Verify database files are created in isolated locations
+    assert!(test_db_path.exists(), "Test database file should be created");
+    assert!(staging_db_path.exists(), "Staging database file should be created");
+    
+    // Test that different databases can store different data
+    let mut test_store = test_storage.unwrap();
+    let mut staging_store = staging_storage.unwrap();
+    
+    let test_addr = prontodb::Address::from_parts(
+        Some("proj".to_string()),
+        Some("ns".to_string()),
+        "key1".to_string(),
+        None,
+    );
+    
+    // Store different values in each database
+    test_store.set(&test_addr, "test_value", None).expect("Should set value in test database");
+    staging_store.set(&test_addr, "staging_value", None).expect("Should set value in staging database");
+    
+    // Verify isolation - each database should have its own value
+    let test_result = test_store.get(&test_addr).expect("Should get from test database");
+    let staging_result = staging_store.get(&test_addr).expect("Should get from staging database");
+    
+    assert_eq!(test_result.unwrap(), "test_value", "Test database should have test_value");
+    assert_eq!(staging_result.unwrap(), "staging_value", "Staging database should have staging_value");
 }

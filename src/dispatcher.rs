@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use crate::api::{self, SetValueConfig};
+use crate::cursor_cache::CursorCache;
 
 // Exit codes per TEST-SPEC
 pub const EXIT_OK: i32 = 0;
@@ -24,6 +25,7 @@ pub struct CommandContext {
     pub ns_delim: String,
     pub cursor: Option<String>,
     pub user: String,
+    pub database: String,
 }
 
 impl CommandContext {
@@ -41,6 +43,8 @@ impl CommandContext {
         let mut ns_delim = ".".to_string();  // Default delimiter
         let mut cursor = None;
         let mut user = "default".to_string();  // Default user
+        let mut database = "main".to_string();  // Default database
+        let mut explicit_database_flag = false;  // Track if --database was explicitly set
 
         let mut i = 1;  // Skip program name
         while i < args.len() {
@@ -57,6 +61,10 @@ impl CommandContext {
                     i += 2;
                 } else if flag_name == "user" && i + 1 < args.len() {
                     user = args[i + 1].clone();
+                    i += 2;
+                } else if flag_name == "database" && i + 1 < args.len() {
+                    database = args[i + 1].clone();
+                    explicit_database_flag = true;
                     i += 2;
                 } else if i + 1 < args.len() && !args[i + 1].starts_with("-") {
                     flags.insert(flag_name.to_string(), args[i + 1].clone());
@@ -95,6 +103,18 @@ impl CommandContext {
             }
         }
 
+        // Auto-selection logic: Check cursor cache if no explicit database flag was provided
+        if !explicit_database_flag {
+            let cache = CursorCache::new();
+            
+            // Determine which user to check for cursor cache
+            let cache_user = if user == "default" { None } else { Some(user.as_str()) };
+            
+            if let Some(cached_database) = cache.get_cursor(cache_user) {
+                database = cached_database;
+            }
+        }
+
         Ok(CommandContext {
             command,
             args: positional,
@@ -104,6 +124,7 @@ impl CommandContext {
             ns_delim,
             cursor,
             user,
+            database,
         })
     }
 }
@@ -137,6 +158,9 @@ pub fn dispatch(args: Vec<String>) -> i32 {
         // TTL/Cache operations
         "create-cache" => handle_create_cache(context),
         
+        // Cursor operations
+        "cursor" => handle_cursor(context),
+        
         // Discovery operations
         "projects" => handle_projects(context),
         "namespaces" => handle_namespaces(context),
@@ -158,7 +182,7 @@ pub fn dispatch(args: Vec<String>) -> i32 {
             EXIT_ERROR
         }
         "backup" => {
-            eprintln!("Backup not implemented in MVP");
+            eprintln!("Backup command handled by pre-dispatcher");
             EXIT_ERROR
         }
 
@@ -203,6 +227,7 @@ fn handle_set(ctx: CommandContext) -> i32 {
         ttl_flag,
         cursor_name: ctx.cursor.as_deref(),
         user: &ctx.user,
+        database: &ctx.database,
     };
     if let Err(e) = api::set_value_with_cursor(config) {
         eprintln!("{}", e);
@@ -218,13 +243,14 @@ fn handle_get(ctx: CommandContext) -> i32 {
     }
 
     let key_or_path = &ctx.args[0];
-    match api::get_value_with_cursor(
+    match api::get_value_with_cursor_and_database(
         ctx.project.as_deref(),
         ctx.namespace.as_deref(),
         key_or_path,
         &ctx.ns_delim,
         ctx.cursor.as_deref(),
         &ctx.user,
+        &ctx.database,
     ) {
         Ok(Some(val)) => {
             println!("{}", val);
@@ -245,13 +271,14 @@ fn handle_del(ctx: CommandContext) -> i32 {
     }
 
     let key_or_path = &ctx.args[0];
-    if let Err(e) = api::delete_value_with_cursor(
+    if let Err(e) = api::delete_value_with_cursor_and_database(
         ctx.project.as_deref(),
         ctx.namespace.as_deref(),
         key_or_path,
         &ctx.ns_delim,
         ctx.cursor.as_deref(),
         &ctx.user,
+        &ctx.database,
     ) {
         eprintln!("Failed to delete: {}", e);
         return EXIT_ERROR;
@@ -267,7 +294,7 @@ fn handle_keys(ctx: CommandContext) -> i32 {
         let namespace = ctx.namespace.as_ref().unwrap();
         let prefix = ctx.args.first().map(|s| s.as_str());
         
-        match api::list_keys_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
+        match api::list_keys_with_cursor_and_database(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
             Ok(keys) => {
                 for k in keys {
                     println!("{}", k);
@@ -283,13 +310,14 @@ fn handle_keys(ctx: CommandContext) -> i32 {
         // Use dot addressing from first argument
         let path_or_prefix = &ctx.args[0];
         
-        match api::list_keys_flexible(
+        match api::list_keys_flexible_with_database(
             ctx.project.as_deref(),
             ctx.namespace.as_deref(),
             path_or_prefix,
             &ctx.ns_delim,
             ctx.cursor.as_deref(),
             &ctx.user,
+            &ctx.database,
         ) {
             Ok(keys) => {
                 for k in keys {
@@ -316,7 +344,7 @@ fn handle_scan(ctx: CommandContext) -> i32 {
         let namespace = ctx.namespace.as_ref().unwrap();
         let prefix = ctx.args.first().map(|s| s.as_str());
         
-        match api::scan_pairs_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
+        match api::scan_pairs_with_cursor_and_database(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
             Ok(pairs) => {
                 for (k, v) in pairs {
                     println!("{}={}", k, v);
@@ -332,13 +360,14 @@ fn handle_scan(ctx: CommandContext) -> i32 {
         // Use dot addressing from first argument
         let path_or_prefix = &ctx.args[0];
         
-        match api::scan_pairs_flexible(
+        match api::scan_pairs_flexible_with_database(
             ctx.project.as_deref(),
             ctx.namespace.as_deref(),
             path_or_prefix,
             &ctx.ns_delim,
             ctx.cursor.as_deref(),
             &ctx.user,
+            &ctx.database,
         ) {
             Ok(pairs) => {
                 for (k, v) in pairs {
@@ -391,7 +420,7 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
         }
     };
 
-    match api::create_ttl_namespace_with_cursor(project, namespace, timeout, ctx.cursor.as_deref(), &ctx.user) {
+    match api::create_ttl_namespace_with_cursor_and_database(project, namespace, timeout, ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
         Ok(()) => EXIT_OK,
         Err(e) => {
             eprintln!("Failed to create TTL namespace: {}", e);
@@ -401,7 +430,7 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
 }
 
 fn handle_projects(ctx: CommandContext) -> i32 {
-    match api::projects_with_cursor(ctx.cursor.as_deref(), &ctx.user) {
+    match api::projects_with_cursor_and_database(ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
         Ok(list) => {
             for p in list { println!("{}", p); }
             EXIT_OK
@@ -418,7 +447,7 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
             return EXIT_ERROR;
         }
     };
-    match api::namespaces_with_cursor(project, ctx.cursor.as_deref(), &ctx.user) {
+    match api::namespaces_with_cursor_and_database(project, ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
         Ok(list) => { for n in list { println!("{}", n); } EXIT_OK }
         Err(e) => { eprintln!("{}", e); EXIT_ERROR }
     }
@@ -426,9 +455,9 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
 
 fn handle_nss(ctx: CommandContext) -> i32 {
     // Aggregate namespaces across projects
-    let projects = match api::projects_with_cursor(ctx.cursor.as_deref(), &ctx.user) { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
+    let projects = match api::projects_with_cursor_and_database(ctx.cursor.as_deref(), &ctx.user, &ctx.database) { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
     for p in projects {
-        match api::namespaces_with_cursor(&p, ctx.cursor.as_deref(), &ctx.user) {
+        match api::namespaces_with_cursor_and_database(&p, ctx.cursor.as_deref(), &ctx.user, &ctx.database) {
             Ok(list) => { for n in list { println!("{}{}{}", p, ctx.ns_delim, n); } }
             Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
         }
@@ -440,6 +469,64 @@ fn handle_stream(_ctx: CommandContext) -> i32 {
     // MVP: streams not implemented; security required by default
     eprintln!("stream: security/auth required (feature deferred)");
     EXIT_ERROR
+}
+
+fn handle_cursor(ctx: CommandContext) -> i32 {
+    use crate::cursor_cache::CursorCache;
+    
+    if ctx.args.is_empty() {
+        eprintln!("cursor: Missing subcommand or database name");
+        eprintln!("Usage: prontodb [--user <user>] cursor <database_name>");
+        eprintln!("   or: prontodb [--user <user>] cursor list");
+        eprintln!("   or: prontodb [--user <user>] cursor clear");
+        return EXIT_ERROR;
+    }
+    
+    let cache = CursorCache::new();
+    
+    match ctx.args[0].as_str() {
+        "list" => {
+            let cursors = cache.list_all_cursors();
+            if cursors.is_empty() {
+                println!("No cursor cache found");
+            } else {
+                println!("Cached database selections:");
+                for (user_name, database) in cursors {
+                    println!("  {}: {}", user_name, database);
+                }
+            }
+            EXIT_OK
+        }
+        
+        "clear" => {
+            let cache_user = if ctx.user == "default" { None } else { Some(ctx.user.as_str()) };
+            match cache.clear_cursor(cache_user) {
+                Ok(()) => {
+                    println!("Cursor cache cleared for user '{}'", ctx.user);
+                    EXIT_OK
+                }
+                Err(e) => {
+                    eprintln!("cursor clear: Failed to clear cursor cache: {}", e);
+                    EXIT_ERROR
+                }
+            }
+        }
+        
+        database_name => {
+            // Set cursor to database name
+            let cache_user = if ctx.user == "default" { None } else { Some(ctx.user.as_str()) };
+            match cache.set_cursor(database_name, cache_user) {
+                Ok(()) => {
+                    println!("Global cursor set to '{}' for user '{}'", database_name, ctx.user);
+                    EXIT_OK
+                }
+                Err(e) => {
+                    eprintln!("cursor: Failed to set cursor: {}", e);
+                    EXIT_ERROR
+                }
+            }
+        }
+    }
 }
 
 fn handle_admin(ctx: CommandContext) -> i32 {
@@ -457,6 +544,7 @@ fn handle_admin(ctx: CommandContext) -> i32 {
         }
     }
 }
+
 
 fn print_version() {
     println!("prontodb {}", env!("CARGO_PKG_VERSION"));
@@ -483,6 +571,11 @@ fn print_help() {
     println!("TTL Commands:");
     println!("  create-cache <project.namespace> <ttl_seconds>    Create TTL namespace");
     println!();
+    println!("Cursor Commands:");
+    println!("  cursor <database>                              Set global database cursor");
+    println!("  cursor list                                    List all cursor cache entries");
+    println!("  cursor clear                                   Clear cursor cache for user");
+    println!();
     println!("Admin Commands:");
     println!("  admin <subcommand>                      Admin operations");
     println!();
@@ -490,6 +583,7 @@ fn print_help() {
     println!("  -p <project>               Set project");
     println!("  -n <namespace>             Set namespace");
     println!("  --ns-delim <delim>         Override delimiter (default: '.')");
+    println!("  --database <name>          Set database (default: 'main')");
     println!();
     println!("Addressing Formats:");
     println!("  project.namespace.key      Full path addressing");
@@ -513,4 +607,8 @@ fn print_help() {
     println!("  prontodb get myapp.config.debug");
     println!("  prontodb set myapp.cache.user__prod 'active'");
     println!("  prontodb create-cache myapp.sessions 3600");
+    println!("  prontodb --database test get myapp.config.debug");
+    println!("  prontodb cursor staging                    # Set global cursor");
+    println!("  prontodb cursor prod --user alice          # Set alice's cursor");
+    println!("  prontodb --database staging backup");
 }

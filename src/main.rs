@@ -6,14 +6,15 @@ mod addressing;
 mod storage;
 mod xdg;
 mod api;
-mod backup;
+mod commands;
 mod cursor;
+mod cursor_cache;
 
 // Use RSB prelude for macros (bootstrap!/pre_dispatch!/dispatch!)
 use rsb::prelude::*;
 
 // Import RSB command handlers
-use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_cursor};
+use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_cursor, do_noop};
 
 // RSB lifecycle command handlers with proper naming convention
 fn do_install(args: rsb::args::Args) -> i32 {
@@ -316,150 +317,7 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
 }
 
 fn do_backup(args: rsb::args::Args) -> i32 {
-    use std::path::PathBuf;
-    
-    // Parse backup options
-    let mut output_dir = None;
-    let mut list_backups = false;
-    let mut restore_file = None;
-    let mut quiet = false;
-    
-    let arg_list = args.all();
-    let mut i = 0;
-    while i < arg_list.len() {
-        match arg_list[i].as_str() {
-            "--output" | "-o" if i + 1 < arg_list.len() => {
-                output_dir = Some(PathBuf::from(&arg_list[i + 1]));
-                i += 2;
-            }
-            "--list" | "-l" => {
-                list_backups = true;
-                i += 1;
-            }
-            "--restore" | "-r" if i + 1 < arg_list.len() => {
-                restore_file = Some(PathBuf::from(&arg_list[i + 1]));
-                i += 2;
-            }
-            "--quiet" | "-q" => {
-                quiet = true;
-                i += 1;
-            }
-            "--help" | "-h" => {
-                println!("prontodb backup - Backup and restore ProntoDB data");
-                println!();
-                println!("USAGE:");
-                println!("  prontodb backup [OPTIONS]");
-                println!();
-                println!("OPTIONS:");
-                println!("  -o, --output <DIR>     Output directory for backup (default: current directory)");
-                println!("  -l, --list             List existing backup files in current directory");
-                println!("  -r, --restore <FILE>   Restore from backup file");
-                println!("  -q, --quiet            Suppress output messages");
-                println!("  -h, --help             Show this help message");
-                println!();
-                println!("EXAMPLES:");
-                println!("  prontodb backup                           # Create backup in current directory");
-                println!("  prontodb backup --output ~/backups        # Create backup in specific directory");
-                println!("  prontodb backup --list                    # List existing backups");
-                println!("  prontodb backup --restore backup.tar.gz   # Restore from backup");
-                return 0;
-            }
-            _ => {
-                eprintln!("backup: Unknown option '{}'", arg_list[i]);
-                eprintln!("Use 'prontodb backup --help' for usage information");
-                return 1;
-            }
-        }
-    }
-    
-    let backup_manager = backup::BackupManager::new();
-    
-    // Handle list operation
-    if list_backups {
-        let search_dir = output_dir.as_deref();
-        match backup_manager.list_backups(search_dir) {
-            Ok(backups) => {
-                if backups.is_empty() {
-                    if !quiet {
-                        println!("No backup files found");
-                    }
-                } else {
-                    if !quiet {
-                        println!("Found {} backup file(s):", backups.len());
-                    }
-                    for backup in backups {
-                        let metadata = std::fs::metadata(&backup)
-                            .map(|m| format!("{} bytes", m.len()))
-                            .unwrap_or_else(|_| "unknown size".to_string());
-                        
-                        let modified = std::fs::metadata(&backup)
-                            .and_then(|m| m.modified())
-                            .map(|t| t.duration_since(std::time::UNIX_EPOCH)
-                                     .map(|d| d.as_secs())
-                                     .unwrap_or(0))
-                            .map(|s| chrono::DateTime::from_timestamp(s as i64, 0)
-                                     .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                                     .unwrap_or_else(|| "unknown".to_string()))
-                            .unwrap_or_else(|_| "unknown".to_string());
-                            
-                        println!("  {} ({}, {})", backup.display(), metadata, modified);
-                    }
-                }
-                return 0;
-            }
-            Err(e) => {
-                eprintln!("backup: Failed to list backups: {}", e);
-                return 1;
-            }
-        }
-    }
-    
-    // Handle restore operation
-    if let Some(restore_path) = restore_file {
-        if !quiet {
-            println!("Restoring from backup: {}", restore_path.display());
-        }
-        
-        match backup_manager.restore_backup(&restore_path) {
-            Ok(()) => {
-                if !quiet {
-                    println!("Backup restored successfully!");
-                }
-                return 0;
-            }
-            Err(e) => {
-                eprintln!("backup: Failed to restore backup: {}", e);
-                return 1;
-            }
-        }
-    }
-    
-    // Default: create backup
-    if !quiet {
-        println!("Creating backup...");
-    }
-    
-    match backup_manager.create_backup(output_dir.as_deref()) {
-        Ok(result) => {
-            if !quiet {
-                println!("Backup created successfully!");
-                println!("File: {}", result.file_path.display());
-                println!("Size: {} bytes", result.size_bytes);
-                println!("Timestamp: {}", result.timestamp);
-                if !result.contents.is_empty() {
-                    println!("Contents:");
-                    for item in result.contents {
-                        println!("  {}", item);
-                    }
-                }
-            }
-            0
-        }
-        Err(e) => {
-            eprintln!("backup: Failed to create backup: {}", e);
-            1
-        }
-    }
+    commands::handle_backup_command(args)
 }
 
 fn main() {
@@ -467,7 +325,7 @@ fn main() {
     let raw_args: Vec<String> = std::env::args().collect();
     
     // If we find global flags, intercept and handle them
-    if raw_args.iter().any(|arg| arg == "--cursor" || arg == "--user") {
+    if raw_args.iter().any(|arg| arg == "--cursor" || arg == "--user" || arg == "--database") {
         // Handle global flag parsing and command execution directly
         if let Some(exit_code) = handle_global_flags_and_execute(raw_args) {
             std::process::exit(exit_code);
@@ -505,6 +363,7 @@ fn main() {
         "stream" => do_stream,
         "admin" => do_admin,
         "cursor" => do_cursor,
+        "noop" => do_noop,
         "help" => do_help
     });
     // No manual exit - RSB dispatch! handles it
@@ -514,7 +373,10 @@ fn main() {
 fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
     let mut cursor_name: Option<String> = None;
     let mut user = "default".to_string();
+    let mut database = "main".to_string();
     let mut command_args = Vec::new();
+    let mut explicit_cursor_flag = false;  // Track if --cursor was used
+    let mut explicit_database_flag = false;  // Track if --database was used
     let mut i = 1; // Skip program name
     
     // Parse global flags and remaining args
@@ -522,10 +384,16 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
         match args[i].as_str() {
             "--cursor" if i + 1 < args.len() => {
                 cursor_name = Some(args[i + 1].clone());
+                explicit_cursor_flag = true;
                 i += 2;
             }
             "--user" if i + 1 < args.len() => {
                 user = args[i + 1].clone();
+                i += 2;
+            }
+            "--database" if i + 1 < args.len() => {
+                database = args[i + 1].clone();
+                explicit_database_flag = true;
                 i += 2;
             }
             _ => {
@@ -543,18 +411,45 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
     let command = &command_args[0];
     let remaining_args: Vec<String> = command_args[1..].to_vec();
     
+    // Update cursor cache if --cursor flag was used
+    if explicit_cursor_flag {
+        if let Some(ref cursor_db) = cursor_name {
+            use prontodb::cursor_cache::CursorCache;
+            let cache = CursorCache::new();
+            let cache_user = if user == "default" { None } else { Some(user.as_str()) };
+            
+            if let Err(e) = cache.set_cursor(cursor_db, cache_user) {
+                eprintln!("Warning: Failed to update cursor cache: {}", e);
+                // Continue execution - don't fail the command due to cache update failure
+            }
+        }
+    }
+    
+    // Auto-selection logic: Check cursor cache if no explicit database flag was provided
+    if !explicit_database_flag {
+        use prontodb::cursor_cache::CursorCache;
+        let cache = CursorCache::new();
+        
+        // Determine which user to check for cursor cache
+        let cache_user = if user == "default" { None } else { Some(user.as_str()) };
+        
+        if let Some(cached_database) = cache.get_cursor(cache_user) {
+            database = cached_database;
+        }
+    }
+    
     // Execute command with global context
     match command.as_str() {
-        "set" => Some(execute_with_context("set", remaining_args, cursor_name.as_deref(), &user)),
-        "get" => Some(execute_with_context("get", remaining_args, cursor_name.as_deref(), &user)),
-        "del" => Some(execute_with_context("del", remaining_args, cursor_name.as_deref(), &user)),
-        "keys" => Some(execute_with_context("keys", remaining_args, cursor_name.as_deref(), &user)),
-        "scan" => Some(execute_with_context("scan", remaining_args, cursor_name.as_deref(), &user)),
-        "ls" => Some(execute_with_context("ls", remaining_args, cursor_name.as_deref(), &user)),
-        "projects" => Some(execute_with_context("projects", remaining_args, cursor_name.as_deref(), &user)),
-        "namespaces" => Some(execute_with_context("namespaces", remaining_args, cursor_name.as_deref(), &user)),
-        "nss" => Some(execute_with_context("nss", remaining_args, cursor_name.as_deref(), &user)),
-        "create-cache" => Some(execute_with_context("create-cache", remaining_args, cursor_name.as_deref(), &user)),
+        "set" => Some(execute_with_context("set", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "get" => Some(execute_with_context("get", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "del" => Some(execute_with_context("del", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "keys" => Some(execute_with_context("keys", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "scan" => Some(execute_with_context("scan", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "ls" => Some(execute_with_context("ls", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "projects" => Some(execute_with_context("projects", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "namespaces" => Some(execute_with_context("namespaces", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "nss" => Some(execute_with_context("nss", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "create-cache" => Some(execute_with_context("create-cache", remaining_args, cursor_name.as_deref(), &user, &database)),
         "cursor" => {
             // For cursor command, we need to pass --user flag to the command as it handles it internally
             let mut cursor_args = remaining_args;
@@ -562,6 +457,30 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
             cursor_args.push(user.clone());
             let rsb_args = rsb::args::Args::new(&cursor_args);
             Some(prontodb::do_cursor(rsb_args))
+        }
+        "backup" => {
+            // Convert command args back to RSB format for backup command
+            let mut backup_args = remaining_args;
+            // Add the database flag to the backup command args
+            backup_args.push("--database".to_string());
+            backup_args.push(database.clone());
+            let rsb_args = rsb::args::Args::new(&backup_args);
+            Some(commands::handle_backup_command(rsb_args))
+        }
+        "noop" => {
+            let mut noop_args = remaining_args;
+            // Add --user flag if specified
+            if user != "default" {
+                noop_args.push("--user".to_string());
+                noop_args.push(user.clone());
+            }
+            // Add --cursor flag if specified
+            if let Some(ref cursor) = cursor_name {
+                noop_args.push("--cursor".to_string());
+                noop_args.push(cursor.clone());
+            }
+            let rsb_args = rsb::args::Args::new(&noop_args);
+            Some(prontodb::do_noop(rsb_args))
         }
         "help" => {
             let empty_args = Vec::new();
@@ -575,9 +494,9 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
     }
 }
 
-// Execute command with cursor and user context
-fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&str>, user: &str) -> i32 {
-    use prontodb::api::*;
+// Execute command with cursor, user, and database context
+fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&str>, user: &str, database: &str) -> i32 {
+    use prontodb::api::{*, SetValueConfig};
     use prontodb::addressing::parse_address;
     
     match command {
@@ -593,7 +512,18 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
             
             match parse_address(Some(address_str), None, None, None, ".") {
                 Ok(_address) => {
-                    match set_value_with_cursor(None, None, address_str, value, ".", None, cursor_name, user) {
+                    let config = SetValueConfig {
+                        project: None,
+                        namespace: None,
+                        key_or_path: address_str,
+                        value,
+                        ns_delim: ".",
+                        ttl_flag: None,
+                        cursor_name,
+                        user,
+                        database,
+                    };
+                    match set_value_with_cursor(config) {
                         Ok(()) => {
                             println!("Set {}={}", address_str, value);
                             0
@@ -622,7 +552,7 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
             
             match parse_address(Some(address_str), None, None, None, ".") {
                 Ok(_address) => {
-                    match get_value_with_cursor(None, None, address_str, ".", cursor_name, user) {
+                    match get_value_with_cursor_and_database(None, None, address_str, ".", cursor_name, user, database) {
                         Ok(Some(value)) => {
                             println!("{}", value);
                             0
@@ -655,7 +585,7 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
             
             match parse_address(Some(address_str), None, None, None, ".") {
                 Ok(_address) => {
-                    match delete_value_with_cursor(None, None, address_str, ".", cursor_name, user) {
+                    match delete_value_with_cursor_and_database(None, None, address_str, ".", cursor_name, user, database) {
                         Ok(()) => {
                             println!("Deleted {}", address_str);
                             0

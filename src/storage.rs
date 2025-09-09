@@ -290,8 +290,8 @@ pub fn get_db_path() -> PathBuf {
             .join("data")
             .join("odx")
             .join("prontodb")
-            .join("pronto.db")
+            .join("pronto.main.prdb")
     } else {
-        PathBuf::from("/tmp/pronto.db")
+        PathBuf::from("/tmp/pronto.main.prdb")
     }
 }

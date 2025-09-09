@@ -97,7 +97,7 @@ fn mvp_ttl_rules_and_expiry() {
 
     // create TTL namespace
     let status = Command::new(bin())
-        .args(["create-cache", "p3.n3", "timeout=1"]) 
+        .args(["create-cache", "p3.n3", "1"]) 
         .env("HOME", home)
         .status().expect("run create-cache");
     assert!(status.success());

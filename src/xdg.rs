@@ -65,8 +65,8 @@ impl XdgPaths {
         let cache_dir = Self::get_cache_dir(home);
         let runtime_dir = Self::get_runtime_dir();
 
-        let db_path = data_dir.join("pronto.db");
-        let config_file = config_dir.join("pronto.conf");
+        let db_path = data_dir.join("pronto.main.prdb");
+        let config_file = config_dir.join("main.conf");
         let cursor_dir = data_dir.join("cursors");
 
         XdgPaths {
@@ -88,8 +88,8 @@ impl XdgPaths {
         let cache_dir = home.join(".cache").join("odx").join("prontodb");
         let runtime_dir = None; // No runtime dir for isolated tests
 
-        let db_path = data_dir.join("pronto.db");
-        let config_file = config_dir.join("pronto.conf");
+        let db_path = data_dir.join("pronto.main.prdb");
+        let config_file = config_dir.join("main.conf");
         let cursor_dir = data_dir.join("cursors");
 
         XdgPaths {
@@ -118,22 +118,46 @@ impl XdgPaths {
         Ok(())
     }
 
-    /// Get effective database path (supports PRONTO_DB override)
-    pub fn get_db_path(&self) -> PathBuf {
-        // First check runtime env var (for testing)
-        if let Ok(runtime_db) = std::env::var("PRONTO_DB") {
-            if !runtime_db.is_empty() {
-                return PathBuf::from(runtime_db);
+    /// Get database-scoped directory for a specific database
+    pub fn get_database_dir(&self, db_name: &str) -> PathBuf {
+        self.data_dir.join(db_name)
+    }
+
+    /// Get effective database path for a specific database (supports PRONTO_DB override for default)
+    pub fn get_db_path_with_name(&self, db_name: &str) -> PathBuf {
+        // For backward compatibility: only apply env var override to "main" database
+        if db_name == "main" {
+            // First check runtime env var (for testing)
+            if let Ok(runtime_db) = std::env::var("PRONTO_DB") {
+                if !runtime_db.is_empty() {
+                    return PathBuf::from(runtime_db);
+                }
+            }
+            
+            // Then check RSB param for production
+            let db_path = param!("PRONTO_DB", default: "");
+            if !db_path.is_empty() {
+                return PathBuf::from(db_path);
             }
         }
         
-        // Then check RSB param for production
-        let db_path = param!("PRONTO_DB", default: "");
-        if !db_path.is_empty() {
-            PathBuf::from(db_path)
-        } else {
-            self.db_path.clone()
-        }
+        // For all databases (including pronto when no override), use database-scoped path
+        self.get_database_dir(db_name).join(format!("pronto.{}.prdb", db_name))
+    }
+
+    /// Get effective database path (backward compatible - uses "main" as default database)
+    pub fn get_db_path(&self) -> PathBuf {
+        self.get_db_path_with_name("main")
+    }
+
+    /// Get cursor directory for a specific database
+    pub fn get_cursor_dir_with_name(&self, db_name: &str) -> PathBuf {
+        self.get_database_dir(db_name).join("cursors")
+    }
+
+    /// Get cursor directory (backward compatible - uses "main" as default database)
+    pub fn get_cursor_dir(&self) -> PathBuf {
+        self.get_cursor_dir_with_name("main")
     }
 
     /// Get effective config file path (supports PRONTO_CONFIG override)
@@ -338,6 +362,16 @@ pub mod test_utils {
         pub fn effective_db_path_str(&self) -> String {
             self.paths.get_db_path().to_string_lossy().to_string()
         }
+
+        /// Get the database path for a specific database as string
+        pub fn db_path_for_str(&self, db_name: &str) -> String {
+            self.paths.get_db_path_with_name(db_name).to_string_lossy().to_string()
+        }
+
+        /// Get the cursor directory for a specific database as string
+        pub fn cursor_dir_for_str(&self, db_name: &str) -> String {
+            self.paths.get_cursor_dir_with_name(db_name).to_string_lossy().to_string()
+        }
     }
 }
 
@@ -358,8 +392,8 @@ mod tests {
         assert!(paths.cursor_dir.ends_with("cursors"));
         
         // Verify files are in correct locations
-        assert!(paths.db_path.ends_with("pronto.db"));
-        assert!(paths.config_file.ends_with("pronto.conf"));
+        assert!(paths.db_path.ends_with("pronto.main.prdb"));
+        assert!(paths.config_file.ends_with("main.conf"));
     }
 
     #[test]
@@ -387,7 +421,7 @@ mod tests {
         assert_eq!(paths.get_db_path(), custom_db);
         
         std::env::remove_var("PRONTO_DB");
-        assert_eq!(paths.get_db_path(), paths.db_path);
+        assert_eq!(paths.get_db_path(), paths.get_db_path_with_name("main"));
     }
 
     #[test]
@@ -453,5 +487,58 @@ mod tests {
         // let malformed_path = temp_dir.path().join("${XDG_TMP:-malformed");
         // assert!(safe_create_dir_all(&malformed_path).is_err());
         // assert!(!malformed_path.exists());
+    }
+
+    #[test]
+    fn test_database_scoped_paths() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = XdgPaths::from_home(temp_dir.path());
+
+        // Test database directory creation
+        let main_dir = paths.get_database_dir("main");
+        let test_dir = paths.get_database_dir("test");
+        
+        assert!(main_dir.ends_with("odx/prontodb/main"));
+        assert!(test_dir.ends_with("odx/prontodb/test"));
+        assert_ne!(main_dir, test_dir);
+
+        // Test database-scoped database paths
+        let main_db = paths.get_db_path_with_name("main");
+        let test_db = paths.get_db_path_with_name("test");
+        
+        assert!(main_db.ends_with("main/pronto.main.prdb"));
+        assert!(test_db.ends_with("test/pronto.test.prdb"));
+        assert_ne!(main_db, test_db);
+
+        // Test database-scoped cursor paths
+        let main_cursors = paths.get_cursor_dir_with_name("main");
+        let test_cursors = paths.get_cursor_dir_with_name("test");
+        
+        assert!(main_cursors.ends_with("main/cursors"));
+        assert!(test_cursors.ends_with("test/cursors"));
+        assert_ne!(main_cursors, test_cursors);
+    }
+
+    #[test]
+    fn test_backward_compatibility() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = XdgPaths::from_home(temp_dir.path());
+
+        // Test that default methods work same as main-scoped methods
+        assert_eq!(paths.get_db_path(), paths.get_db_path_with_name("main"));
+        assert_eq!(paths.get_cursor_dir(), paths.get_cursor_dir_with_name("main"));
+        
+        // Test environment variable override still works for default database
+        let custom_db = temp_dir.path().join("custom_override.db");
+        std::env::set_var("PRONTO_DB", &custom_db);
+        
+        // Should work for default methods and main specifically
+        assert_eq!(paths.get_db_path(), custom_db);
+        assert_eq!(paths.get_db_path_with_name("main"), custom_db);
+        
+        // But not for other databases
+        assert_ne!(paths.get_db_path_with_name("test"), custom_db);
+        
+        std::env::remove_var("PRONTO_DB");
     }
 }

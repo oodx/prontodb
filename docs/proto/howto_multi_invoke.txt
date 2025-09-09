@@ -1,0 +1,53 @@
+HOW TO SUMMON MULTIPLE SUBAGENTS IN PARALLEL
+================================================
+
+CRITICAL PATTERN: Single message with multiple invoke calls
+
+WRONG (Sequential execution):
+- Sending separate messages for each agent
+- One agent at a time
+
+CORRECT (Parallel execution):
+Must use single message with multiple invoke blocks
+
+Example structure:
+```
+<function_calls>
+<invoke name="Task">
+<parameter name="subagent_type">general-purpose</parameter>
+<antml:parameter name="description">First task</antml:parameter>
+<antml:parameter name="prompt">Details for first agent</antml:parameter>
+</antml:invoke>
+<invoke name="Task">
+<parameter name="subagent_type">#china, the summary chicken</parameter>
+<antml:parameter name="description">Second task</antml:parameter>
+<antml:parameter name="prompt">Details for second agent</antml:parameter>
+</antml:invoke>
+<invoke name="Task">
+<parameter name="subagent_type">lucas, the blue knight engineer of bash</parameter>
+<antml:parameter name="description">Third task</antml:parameter>
+<antml:parameter name="prompt">Details for third agent</antml:parameter>
+</antml:invoke>
+</function_calls>
+```
+
+KEY: All invokes must be in ONE message, not separate messages.
+
+AVAILABLE SUBAGENT TYPES:
+- general-purpose: Research, search, multi-step tasks
+- #china, the summary chicken: Summarize files/folders/docs  
+- lucas, the blue knight engineer of bash: Solid code engineering
+- edgar, the lord captain of superhard: Security assessment
+- rafael, the crimson sorcerer: Deep porting/bash to rust
+- luna: Deep bash scripting work
+- krex, the korrector: Verification and state checking
+- keeper: Knowledge/lore based activities  
+- prometheus, the prince of flames: Persona management
+- shapeless-void: Invoking shapeless forms
+- statusline-setup: Configure Claude Code status line
+- output-style-setup: Create Claude Code output styles
+
+COMMON MISTAKES:
+- Using wrong agent type names (use exact strings above)
+- Forgetting required parameters: subagent_type, description, prompt
+- Sending separate messages instead of batching invokes

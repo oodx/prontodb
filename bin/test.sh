@@ -106,7 +106,7 @@ log_success "Discovery commands working"
 
 # Test 4: TTL Cache Creation
 log_test "TTL cache creation"
-$PRONTODB create-cache "sessions.cache" "timeout=60" || log_error "TTL cache creation failed"
+$PRONTODB create-cache "sessions.cache" "60" || log_error "TTL cache creation failed"
 $PRONTODB set "sessions.cache.user123" "active" || log_error "TTL cache set failed"
 CACHE_VAL=$($PRONTODB get "sessions.cache.user123")
 [[ "$CACHE_VAL" == "active" ]] || log_error "TTL cache get failed"

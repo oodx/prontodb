@@ -1,0 +1,169 @@
+🐔 CHINA'S DEFINITIVE API INCONSISTENCY AUDIT EGG 🐔
+=====================================================
+Date: 2025-09-09 (Latest forensic analysis)
+Target: ProntoDB API consistency across documentation, UAT, and implementation
+Auditor: China the Summary Chicken (Most thorough in the digital coop!)
+
+⚠️ DISCLAIMER: This summary reflects file contents at analysis time. Additional source of truth confirmation may be needed.
+
+🚨 CRITICAL INCONSISTENCIES DISCOVERED 🚨
+
+1. CREATE-CACHE SYNTAX CATASTROPHE
+==================================
+📋 ACTUAL_SYNTAX.md CLAIMS (Lines 32-36):
+  ✅ CORRECTED: Simple positional arguments  
+  prontodb create-cache myapp.sessions 3600     # project.namespace ttl_seconds
+  # Old timeout= syntax removed for consistency
+
+📋 UAT.SH USES (Line 184):
+  prontodb create-cache $TEST_PROJECT.$TTL_NAMESPACE timeout=300
+
+📋 ACTUAL IMPLEMENTATION:
+  ❌ UAT syntax FAILS: "Invalid timeout value: 'timeout=3600'. Must be a positive number"
+  ✅ New syntax WORKS: prontodb create-cache test.sessions 3600
+
+🥚 FINDING: ACTUAL_SYNTAX.md is CORRECT, but UAT.SH uses OLD/BROKEN syntax!
+
+2. KEYS/SCAN DOT ADDRESSING LIES
+================================
+📋 ACTUAL_SYNTAX.md CLAIMS (Lines 17-28):
+  ✅ FIXED: All discovery commands now support dot addressing
+  prontodb keys myapp.config                    # List keys in myapp.config namespace
+  prontodb scan myapp.config                    # Scan key-value pairs
+
+📋 UAT.SH USES (Lines 173-176):
+  run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE keys" "List all keys in namespace"
+  run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE scan" "Scan all key-value pairs"
+
+📋 ACTUAL IMPLEMENTATION (dispatcher.rs lines 262-308):
+  ✅ BOTH PATTERNS SUPPORTED: Code handles both -p/-n flags AND dot addressing
+  ❌ BUT: When using dot addressing alone, requires proper project.namespace format
+
+🥚 FINDING: Implementation SUPPORTS dot addressing for keys/scan, but UAT only tests flag syntax!
+
+3. HELP SYSTEM CONFUSION  
+=========================
+📋 DISPATCHER.RS help (Lines 474-485):
+  keys [prefix]                           List keys (requires -p and -n)
+  scan [prefix]                           Scan key-value pairs (requires -p and -n)
+  create-cache <project.namespace> timeout=SECONDS  Create TTL namespace
+
+📋 ACTUAL help OUTPUT:
+  keys [prefix]              List all keys, optionally with prefix
+  create-cache <proj.ns> <ttl_sec>    Create TTL-enabled namespace
+
+🥚 FINDING: dispatcher.rs help is OUTDATED compared to actual help system!
+
+4. DOT ADDRESSING LEVEL LIMITS
+==============================
+📋 ACTUAL_SYNTAX.md CLAIMS (Lines 40-49):
+  # Still limited to 3 levels maximum:
+  # ❌ FAILS: More than 3 dots
+  prontodb set myapp.prod.db.host "prod.db.com" # ERROR: 4 parts not supported
+
+📋 ADDRESSING.RS IMPLEMENTATION (Lines 51-75):
+  3 => {
+    // Full project.namespace.key addressing
+    Ok(Address {
+      project: parts[0].to_string(),
+      namespace: parts[1].to_string(),
+      key: parts[2].to_string(),
+      context,
+    })
+  }
+  _ => Err(format!("Path must have 1-3 parts, got {}", parts.len())),
+
+🥚 FINDING: 3-level limit is CORRECTLY implemented and documented!
+
+📊 INCONSISTENCY PRIORITY MATRIX
+================================
+
+🔥 HIGH PRIORITY (Breaks UAT)
+----------------------------
+1. UAT create-cache syntax (Line 184) - IMMEDIATE FIX NEEDED
+   - Current: timeout=300 (BROKEN)
+   - Should be: 300 (WORKING)
+
+2. UAT help command expectations mismatch 
+   - UAT may expect different help text format
+   - Test against actual help output
+
+🚨 MEDIUM PRIORITY (Documentation Drift)
+---------------------------------------
+1. dispatcher.rs help text outdated (Lines 474-516)
+   - Says keys/scan "requires -p and -n" 
+   - But implementation supports dot addressing
+   - Says create-cache uses "timeout=SECONDS"
+   - But implementation uses positional args
+
+2. UAT doesn't test dot addressing for keys/scan
+   - Missing test coverage for documented feature
+   - Should add dot addressing tests
+
+🐥 LOW PRIORITY (Minor Issues)
+-----------------------------
+1. ACTUAL_SYNTAX.md has some syntax inconsistencies
+   - Line 83: Still shows old timeout= syntax in one example
+   - Could be cleaner
+
+🎯 SPECIFIC FILES REQUIRING UPDATES
+==================================
+
+📝 bin/uat.sh - Line 184
+   CHANGE: prontodb create-cache $TEST_PROJECT.$TTL_NAMESPACE timeout=300
+   TO: prontodb create-cache $TEST_PROJECT.$TTL_NAMESPACE 300
+
+📝 src/dispatcher.rs - Lines 474-516 (print_help function)
+   UPDATE: Help text to match actual API capabilities
+   - Remove "requires -p and -n" for keys/scan
+   - Fix create-cache syntax documentation
+
+📝 bin/uat.sh - Add dot addressing tests
+   ADD: Test cases for keys/scan with dot addressing:
+   - run_command "$BINARY keys $TEST_PROJECT.$TEST_NAMESPACE"
+   - run_command "$BINARY scan $TEST_PROJECT.$TEST_NAMESPACE"
+
+📝 ACTUAL_SYNTAX.md - Line 83 cleanup
+   MINOR: Remove stray old timeout= syntax reference
+
+🧪 VERIFICATION TESTING NEEDED
+==============================
+
+1. Run UAT after fixing create-cache syntax
+2. Test all dot addressing patterns claimed in docs
+3. Verify help text matches implementation
+4. Test edge cases around 3-level addressing limits
+5. Verify both flag and dot addressing work for keys/scan
+
+🏆 WORKING PATTERNS (Verified by testing)
+=========================================
+✅ prontodb set test.config.debug "true"           # 3-level dot addressing  
+✅ prontodb create-cache test.sessions 3600        # Positional timeout
+✅ Both keys/scan support dot addressing (per code)
+
+❌ BROKEN PATTERNS (Confirmed failures)
+=======================================  
+❌ prontodb create-cache test.sessions timeout=3600 # Old syntax fails
+❌ UAT script will fail at create-cache command
+
+🐔 CHINA'S RECOMMENDATION
+========================
+FIX PRIORITY ORDER:
+1. UAT create-cache syntax (BLOCKS UAT TESTING)
+2. dispatcher.rs help text (USER CONFUSION)  
+3. Add dot addressing coverage to UAT (FEATURE GAPS)
+4. Minor documentation cleanup (POLISH)
+
+The good news: Most features ACTUALLY WORK as documented!
+The bad news: UAT uses old broken syntax that will fail tests!
+
+*ruffles feathers proudly* 
+
+This chicken has uncovered the truth! The API is mostly consistent, 
+but the UAT script uses outdated syntax that breaks testing!
+
+🥚 EGG LAID SUCCESSFULLY! 
+Location: /home/xnull/repos/code/rust/oodx/prontodb/.eggs/egg.1.api-inconsistency-audit.txt
+
+Summary: Critical UAT syntax bug found, plus documentation drift in help system.
+Priority fix: UAT create-cache command syntax.
