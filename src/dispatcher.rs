@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use crate::api;
+use crate::api::{self, SetValueConfig};
 
 // Exit codes per TEST-SPEC
 pub const EXIT_OK: i32 = 0;
@@ -194,16 +194,17 @@ fn handle_set(ctx: CommandContext) -> i32 {
     let key_or_path = &ctx.args[0];
     let value = &ctx.args[1];
     let ttl_flag = ctx.flags.get("ttl").and_then(|s| s.parse::<u64>().ok());
-    if let Err(e) = api::set_value_with_cursor(
-        ctx.project.as_deref(),
-        ctx.namespace.as_deref(),
+    let config = SetValueConfig {
+        project: ctx.project.as_deref(),
+        namespace: ctx.namespace.as_deref(),
         key_or_path,
         value,
-        &ctx.ns_delim,
+        ns_delim: &ctx.ns_delim,
         ttl_flag,
-        ctx.cursor.as_deref(),
-        &ctx.user,
-    ) {
+        cursor_name: ctx.cursor.as_deref(),
+        user: &ctx.user,
+    };
+    if let Err(e) = api::set_value_with_cursor(config) {
         eprintln!("{}", e);
         return EXIT_ERROR;
     }
@@ -259,66 +260,100 @@ fn handle_del(ctx: CommandContext) -> i32 {
 }
 
 fn handle_keys(ctx: CommandContext) -> i32 {
-    // Require -p and -n (explicit)
-    let project = match &ctx.project {
-        Some(p) => p,
-        None => {
-            eprintln!("keys requires -p <project> and -n <namespace>");
-            return EXIT_ERROR;
-        }
-    };
-    let namespace = match &ctx.namespace {
-        Some(n) => n,
-        None => {
-            eprintln!("keys requires -p <project> and -n <namespace>");
-            return EXIT_ERROR;
-        }
-    };
-    let prefix = ctx.args.get(0).map(|s| s.as_str());
-
-    match api::list_keys_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
-        Ok(keys) => {
-            for k in keys {
-                println!("{}", k);
+    // Support both explicit -p/-n flags and dot addressing
+    if ctx.project.is_some() && ctx.namespace.is_some() {
+        // Use explicit flags with optional prefix
+        let project = ctx.project.as_ref().unwrap();
+        let namespace = ctx.namespace.as_ref().unwrap();
+        let prefix = ctx.args.first().map(|s| s.as_str());
+        
+        match api::list_keys_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
+            Ok(keys) => {
+                for k in keys {
+                    println!("{}", k);
+                }
+                EXIT_OK
             }
-            EXIT_OK
+            Err(e) => {
+                eprintln!("Failed to list keys: {}", e);
+                EXIT_ERROR
+            }
         }
-        Err(e) => {
-            eprintln!("Failed to list keys: {}", e);
-            EXIT_ERROR
+    } else if !ctx.args.is_empty() {
+        // Use dot addressing from first argument
+        let path_or_prefix = &ctx.args[0];
+        
+        match api::list_keys_flexible(
+            ctx.project.as_deref(),
+            ctx.namespace.as_deref(),
+            path_or_prefix,
+            &ctx.ns_delim,
+            ctx.cursor.as_deref(),
+            &ctx.user,
+        ) {
+            Ok(keys) => {
+                for k in keys {
+                    println!("{}", k);
+                }
+                EXIT_OK
+            }
+            Err(e) => {
+                eprintln!("Failed to list keys: {}", e);
+                EXIT_ERROR
+            }
         }
+    } else {
+        eprintln!("Usage: keys <project.namespace[.prefix]> OR keys -p <project> -n <namespace> [prefix]");
+        EXIT_ERROR
     }
 }
 
 fn handle_scan(ctx: CommandContext) -> i32 {
-    // Require -p and -n (explicit)
-    let project = match &ctx.project {
-        Some(p) => p,
-        None => {
-            eprintln!("scan requires -p <project> and -n <namespace>");
-            return EXIT_ERROR;
-        }
-    };
-    let namespace = match &ctx.namespace {
-        Some(n) => n,
-        None => {
-            eprintln!("scan requires -p <project> and -n <namespace>");
-            return EXIT_ERROR;
-        }
-    };
-    let prefix = ctx.args.get(0).map(|s| s.as_str());
-
-    match api::scan_pairs_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
-        Ok(pairs) => {
-            for (k, v) in pairs {
-                println!("{}={}", k, v);
+    // Support both explicit -p/-n flags and dot addressing
+    if ctx.project.is_some() && ctx.namespace.is_some() {
+        // Use explicit flags with optional prefix
+        let project = ctx.project.as_ref().unwrap();
+        let namespace = ctx.namespace.as_ref().unwrap();
+        let prefix = ctx.args.first().map(|s| s.as_str());
+        
+        match api::scan_pairs_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
+            Ok(pairs) => {
+                for (k, v) in pairs {
+                    println!("{}={}", k, v);
+                }
+                EXIT_OK
             }
-            EXIT_OK
+            Err(e) => {
+                eprintln!("Failed to scan: {}", e);
+                EXIT_ERROR
+            }
         }
-        Err(e) => {
-            eprintln!("Failed to scan: {}", e);
-            EXIT_ERROR
+    } else if !ctx.args.is_empty() {
+        // Use dot addressing from first argument
+        let path_or_prefix = &ctx.args[0];
+        
+        match api::scan_pairs_flexible(
+            ctx.project.as_deref(),
+            ctx.namespace.as_deref(),
+            path_or_prefix,
+            &ctx.ns_delim,
+            ctx.cursor.as_deref(),
+            &ctx.user,
+        ) {
+            Ok(pairs) => {
+                for (k, v) in pairs {
+                    println!("{}={}", k, v);
+                }
+                EXIT_OK
+            }
+            Err(e) => {
+                eprintln!("Failed to scan: {}", e);
+                EXIT_ERROR
+            }
         }
+    } else {
+        eprintln!("Usage: scan <project.namespace[.prefix]> OR scan -p <project> -n <namespace> [prefix]");
+        EXIT_ERROR
     }
 }
 
@@ -329,7 +364,7 @@ fn handle_ls(ctx: CommandContext) -> i32 {
 
 fn handle_create_cache(ctx: CommandContext) -> i32 {
     if ctx.args.len() < 2 {
-        eprintln!("Usage: create-cache <project.namespace> timeout=SECONDS");
+        eprintln!("Usage: create-cache <project.namespace> <timeout_seconds>");
         return EXIT_ERROR;
     }
 
@@ -343,27 +378,15 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
     let project = parts[0];
     let namespace = parts[1];
 
-    // Parse timeout
-    let mut timeout_opt: Option<u64> = None;
-    if let Some(v) = ctx.flags.get("timeout") {
-        timeout_opt = v.parse::<u64>().ok();
-    }
-    if timeout_opt.is_none() {
-        // try arg2: key=value
-        if let Some(arg2) = ctx.args.get(1) {
-            if let Some(eq) = arg2.find('=') {
-                let (k, v) = arg2.split_at(eq);
-                if k == "timeout" {
-                    timeout_opt = v[1..].parse::<u64>().ok();
-                }
-            }
+    // Parse timeout from second positional argument
+    let timeout = match ctx.args[1].parse::<u64>() {
+        Ok(t) if t > 0 => t,
+        Ok(_) => {
+            eprintln!("Timeout must be greater than 0");
+            return EXIT_ERROR;
         }
-    }
-
-    let timeout = match timeout_opt {
-        Some(t) if t > 0 => t,
-        _ => {
-            eprintln!("Invalid or missing timeout; expected timeout=SECONDS > 0");
+        Err(_) => {
+            eprintln!("Invalid timeout value: '{}'. Must be a positive number", ctx.args[1]);
             return EXIT_ERROR;
         }
     };
@@ -448,8 +471,8 @@ fn print_help() {
     println!("  set <path|key> <value> [--ttl SECONDS]  Store a value");
     println!("  get <path|key>                          Retrieve a value");
     println!("  del <path|key>                          Delete a value");
-    println!("  keys [prefix]                           List keys (requires -p and -n)");
-    println!("  scan [prefix]                           Scan key-value pairs (requires -p and -n)");
+    println!("  keys [prefix]                           List keys (supports dot addressing or -p/-n)");
+    println!("  scan [prefix]                           Scan key-value pairs (supports dot addressing or -p/-n)");
     println!("  ls [prefix]                             Alias for scan");
     println!();
     println!("Discovery Commands:");
@@ -458,7 +481,7 @@ fn print_help() {
     println!("  nss                                     List all project.namespace combinations");
     println!();
     println!("TTL Commands:");
-    println!("  create-cache <project.namespace> timeout=SECONDS  Create TTL namespace");
+    println!("  create-cache <project.namespace> <ttl_seconds>    Create TTL namespace");
     println!();
     println!("Admin Commands:");
     println!("  admin <subcommand>                      Admin operations");
@@ -489,5 +512,5 @@ fn print_help() {
     println!("  prontodb -p myapp -n config set debug true");
     println!("  prontodb get myapp.config.debug");
     println!("  prontodb set myapp.cache.user__prod 'active'");
-    println!("  prontodb create-cache myapp.sessions timeout=3600");
+    println!("  prontodb create-cache myapp.sessions 3600");
 }

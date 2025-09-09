@@ -175,6 +175,17 @@ EOF
     run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE scan" "Scan all key-value pairs"
     run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE scan config" "Scan pairs with 'config' prefix"
     
+    # Phase 5.5: DOT ADDRESSING FOR DISCOVERY
+    boxy --style "$BOXY_DEFAULT_STYLE" --color magenta << 'EOF'
+🎯 PHASE 5.5: DOT ADDRESSING DISCOVERY
+Testing dot addressing for keys/scan commands
+EOF
+    
+    run_command "$BINARY keys $TEST_PROJECT.$TEST_NAMESPACE" "List keys with dot addressing"
+    run_command "$BINARY keys $TEST_PROJECT.$TEST_NAMESPACE config" "List keys with dot addressing + prefix"
+    run_command "$BINARY scan $TEST_PROJECT.$TEST_NAMESPACE" "Scan with dot addressing"
+    run_command "$BINARY scan $TEST_PROJECT.$TEST_NAMESPACE config" "Scan with dot addressing + prefix"
+    
     # Phase 6: TTL Namespace Operations
     boxy --style "$BOXY_DEFAULT_STYLE" --color magenta << 'EOF'
 ⏰ PHASE 6: TTL NAMESPACE OPERATIONS
