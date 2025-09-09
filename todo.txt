@@ -6,6 +6,25 @@
 📋 REMAINING:
 - RSB param! macro temporarily disabled due to defect (needs fix in RSB library)
 
+🔧 DESIGN INCONSISTENCIES (found during UAT testing):
+1. **keys/scan commands don't support dot addressing** - They require -p/-n flags while set/get/del support dot notation
+   - Current: `prontodb keys -p myapp -n config` 
+   - Should work: `prontodb keys myapp.config`
+   - Fix: Update handle_keys() and handle_scan() to parse dot addresses like handle_set() does
+
+2. **Dot addressing limited to 3 levels** - More fundamental limitation
+   - Current: `myapp.prod.db.host` fails (4 parts)
+   - Workaround: Use underscores `myapp.prod.db_host`
+   - Fix: Update Address::parse() to support arbitrary depth
+
+3. **create-cache syntax inconsistent** - Uses special timeout= syntax vs positional args
+   - Current: `prontodb create-cache sessions.cache timeout=3600`
+   - Should be: `prontodb create-cache sessions.cache 3600` (like set/get commands)
+   - Root cause: Unnecessary key=value parsing in handle_create_cache() - timeout is just a number like any other value
+   - Fix: Simplify to use ctx.args[1] directly like handle_set() does
+
+Note: More inconsistencies may be found in UAT phases 4+ when tested
+
 🐛 RSB BUG FIXED (LOCALLY):
 - RSB's expand_vars() in context.rs doesn't handle ${VAR:-default} syntax
 - ✅ Fixed: Changed RSB context.rs lines 323-353 to use std::env::var with fallback
