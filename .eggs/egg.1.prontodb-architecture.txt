@@ -1,0 +1,82 @@
+🐔 ProntoDB Architecture Analysis for Cursor Support 🥚
+==================================================
+Date: 2025-09-09
+Target: ProntoDB MVP Codebase Architecture
+
+I. DATABASE PATH RESOLUTION FLOW
+--------------------------------
+1. XDG Directory Structure (src/xdg.rs):
+   - Uses XDG Base Directory Specification
+   - Default paths:
+     * Data Dir:    ~/.local/data/odx/prontodb/
+     * Config Dir:  ~/.local/etc/odx/prontodb/
+     * Cache Dir:   ~/.cache/odx/prontodb/
+     * Default DB:  ~/.local/data/odx/prontodb/pronto.db
+
+2. Path Resolution Mechanisms:
+   - Environment Variable Overrides:
+     * PRONTO_DB: Direct database path override
+     * XDG_DATA_HOME: Custom data directory
+     * XDG_CONFIG_HOME: Custom config directory
+     * XDG_CACHE_HOME: Custom cache directory
+     * XDG_RUNTIME_DIR: Optional runtime directory
+
+3. Path Creation Strategies:
+   - `XdgPaths::ensure_dirs()`: Creates all necessary directories
+   - Supports cross-platform (Linux/Windows) home directory detection
+   - Provides test utilities for isolated testing environments
+
+II. RSB ARGUMENT PARSING INTEGRATION
+------------------------------------
+1. Main Entry Point (src/main.rs):
+   - Uses RSB (Rapid Shell Bootstrap) lifecycle pattern
+   - Command Dispatching:
+     * `bootstrap!()`: RSB initialization
+     * `pre_dispatch!()`: Lifecycle commands (install/uninstall/backup)
+     * `dispatch!()`: Main command routing
+
+2. Command Handlers (src/lib.rs):
+   - Standardized handler functions for each command
+   - Converts RSB Args to compatible argument format
+   - Delegates to `dispatcher::dispatch()` for execution
+   - Supports commands: set, get, del, keys, scan, ls, etc.
+
+3. Addressing Mechanisms:
+   - Dot Addressing: `project.namespace.key`
+   - Flag Addressing: `-p project -n namespace key`
+
+III. COMMAND ROUTING ARCHITECTURE
+---------------------------------
+1. Dispatch Flow:
+   main.rs -> lib.rs (RSB handlers) -> dispatcher.rs
+
+2. Key Functions/Structs for Cursor Support:
+   - `addressing::Address`: Address parsing/manipulation
+   - `storage::Storage`: Core storage interface
+   - `dispatcher::dispatch()`: Central command routing
+
+IV. CURSOR SUPPORT INTEGRATION CONSIDERATIONS
+---------------------------------------------
+1. Potential Cursor Support Locations:
+   - Add new command handler in lib.rs
+   - Extend dispatcher.rs routing
+   - Create new addressing/storage methods
+
+2. Recommended Integration Points:
+   - Modify `do_stream()` to support cursor-based iteration
+   - Add cursor-related methods to `Storage` trait
+   - Create new RSB handlers for cursor operations
+
+3. Design Constraints:
+   - Maintain existing dot/flag addressing
+   - Preserve XDG path resolution
+   - Follow RSB command handling patterns
+
+V. CHALLENGES & RECOMMENDATIONS
+-------------------------------
+- Ensure backward compatibility
+- Implement cursor with minimal changes to existing architecture
+- Provide clear documentation on new cursor functionality
+- Add comprehensive test coverage
+
+🐔 Egg Laid Successfully! Ready for Hatching! 🥚

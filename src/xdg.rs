@@ -1,8 +1,9 @@
 // XDG+ path management for ProntoDB
 // Provides proper path isolation for testing and multi-instance setups
 
+use rsb::prelude::*;
+
 use std::path::{Path, PathBuf};
-use std::env;
 
 /// XDG+ paths for ProntoDB
 /// Follows XDG Base Directory Specification with prontodb-specific structure
@@ -15,6 +16,7 @@ pub struct XdgPaths {
     pub runtime_dir: Option<PathBuf>,
     pub db_path: PathBuf,
     pub config_file: PathBuf,
+    pub cursor_dir: PathBuf,
 }
 
 impl XdgPaths {
@@ -33,6 +35,7 @@ impl XdgPaths {
 
         let db_path = data_dir.join("pronto.db");
         let config_file = config_dir.join("pronto.conf");
+        let cursor_dir = data_dir.join("cursors");
 
         XdgPaths {
             home: home.to_path_buf(),
@@ -42,6 +45,30 @@ impl XdgPaths {
             runtime_dir,
             db_path,
             config_file,
+            cursor_dir,
+        }
+    }
+
+    /// Create XdgPaths from specific home directory, ignoring environment variables (for isolated testing)
+    pub fn from_home_isolated(home: &Path) -> Self {
+        let data_dir = home.join(".local").join("data").join("odx").join("prontodb");
+        let config_dir = home.join(".local").join("etc").join("odx").join("prontodb");
+        let cache_dir = home.join(".cache").join("odx").join("prontodb");
+        let runtime_dir = None; // No runtime dir for isolated tests
+
+        let db_path = data_dir.join("pronto.db");
+        let config_file = config_dir.join("pronto.conf");
+        let cursor_dir = data_dir.join("cursors");
+
+        XdgPaths {
+            home: home.to_path_buf(),
+            data_dir,
+            config_dir,
+            cache_dir,
+            runtime_dir,
+            db_path,
+            config_file,
+            cursor_dir,
         }
     }
 
@@ -50,6 +77,7 @@ impl XdgPaths {
         std::fs::create_dir_all(&self.data_dir)?;
         std::fs::create_dir_all(&self.config_dir)?;
         std::fs::create_dir_all(&self.cache_dir)?;
+        std::fs::create_dir_all(&self.cursor_dir)?;
         
         if let Some(runtime_dir) = &self.runtime_dir {
             std::fs::create_dir_all(runtime_dir)?;
@@ -60,7 +88,16 @@ impl XdgPaths {
 
     /// Get effective database path (supports PRONTO_DB override)
     pub fn get_db_path(&self) -> PathBuf {
-        if let Ok(db_path) = env::var("PRONTO_DB") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_db) = std::env::var("PRONTO_DB") {
+            if !runtime_db.is_empty() {
+                return PathBuf::from(runtime_db);
+            }
+        }
+        
+        // Then check RSB param for production
+        let db_path = param!("PRONTO_DB", default: "");
+        if !db_path.is_empty() {
             PathBuf::from(db_path)
         } else {
             self.db_path.clone()
@@ -69,7 +106,16 @@ impl XdgPaths {
 
     /// Get effective config file path (supports PRONTO_CONFIG override)
     pub fn get_config_path(&self) -> PathBuf {
-        if let Ok(config_path) = env::var("PRONTO_CONFIG") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_config) = std::env::var("PRONTO_CONFIG") {
+            if !runtime_config.is_empty() {
+                return PathBuf::from(runtime_config);
+            }
+        }
+        
+        // Then check RSB param for production
+        let config_path = param!("PRONTO_CONFIG", default: "");
+        if !config_path.is_empty() {
             PathBuf::from(config_path)
         } else {
             self.config_file.clone()
@@ -79,19 +125,47 @@ impl XdgPaths {
     // Private helper methods
 
     fn get_home_dir() -> PathBuf {
-        if let Ok(home) = env::var("HOME") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_home) = std::env::var("HOME") {
+            if !runtime_home.is_empty() {
+                return PathBuf::from(runtime_home);
+            }
+        }
+        
+        // Then check RSB param for production
+        let home = param!("HOME", default: "");
+        if !home.is_empty() {
             PathBuf::from(home)
-        } else if let Ok(userprofile) = env::var("USERPROFILE") {
-            // Windows fallback
-            PathBuf::from(userprofile)
         } else {
-            // Ultimate fallback
-            PathBuf::from("/tmp")
+            // Check Windows USERPROFILE runtime first
+            if let Ok(runtime_userprofile) = std::env::var("USERPROFILE") {
+                if !runtime_userprofile.is_empty() {
+                    return PathBuf::from(runtime_userprofile);
+                }
+            }
+            
+            let userprofile = param!("USERPROFILE", default: "");
+            if !userprofile.is_empty() {
+                // Windows fallback
+                PathBuf::from(userprofile)
+            } else {
+                // Ultimate fallback
+                PathBuf::from("/tmp")
+            }
         }
     }
 
     fn get_data_dir(home: &Path) -> PathBuf {
-        if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_data_home) = std::env::var("XDG_DATA_HOME") {
+            if !runtime_data_home.is_empty() {
+                return PathBuf::from(runtime_data_home).join("odx").join("prontodb");
+            }
+        }
+        
+        // Then check RSB param for production
+        let xdg_data_home = param!("XDG_DATA_HOME", default: "");
+        if !xdg_data_home.is_empty() {
             PathBuf::from(xdg_data_home).join("odx").join("prontodb")
         } else {
             home.join(".local").join("data").join("odx").join("prontodb")
@@ -99,7 +173,16 @@ impl XdgPaths {
     }
 
     fn get_config_dir(home: &Path) -> PathBuf {
-        if let Ok(xdg_config_home) = env::var("XDG_CONFIG_HOME") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_config_home) = std::env::var("XDG_CONFIG_HOME") {
+            if !runtime_config_home.is_empty() {
+                return PathBuf::from(runtime_config_home).join("odx").join("prontodb");
+            }
+        }
+        
+        // Then check RSB param for production
+        let xdg_config_home = param!("XDG_CONFIG_HOME", default: "");
+        if !xdg_config_home.is_empty() {
             PathBuf::from(xdg_config_home).join("odx").join("prontodb")
         } else {
             home.join(".local").join("etc").join("odx").join("prontodb")
@@ -107,7 +190,16 @@ impl XdgPaths {
     }
 
     fn get_cache_dir(home: &Path) -> PathBuf {
-        if let Ok(xdg_cache_home) = env::var("XDG_CACHE_HOME") {
+        // First check runtime env var (for testing)
+        if let Ok(runtime_cache_home) = std::env::var("XDG_CACHE_HOME") {
+            if !runtime_cache_home.is_empty() {
+                return PathBuf::from(runtime_cache_home).join("odx").join("prontodb");
+            }
+        }
+        
+        // Then check RSB param for production
+        let xdg_cache_home = param!("XDG_CACHE_HOME", default: "");
+        if !xdg_cache_home.is_empty() {
             PathBuf::from(xdg_cache_home).join("odx").join("prontodb")
         } else {
             home.join(".cache").join("odx").join("prontodb")
@@ -115,9 +207,20 @@ impl XdgPaths {
     }
 
     fn get_runtime_dir() -> Option<PathBuf> {
-        env::var("XDG_RUNTIME_DIR")
-            .ok()
-            .map(|dir| PathBuf::from(dir).join("odx").join("prontodb"))
+        // First check runtime env var (for testing)
+        if let Ok(runtime_runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+            if !runtime_runtime_dir.is_empty() {
+                return Some(PathBuf::from(runtime_runtime_dir).join("odx").join("prontodb"));
+            }
+        }
+        
+        // Then check RSB param for production
+        let runtime_dir = param!("XDG_RUNTIME_DIR", default: "");
+        if !runtime_dir.is_empty() {
+            Some(PathBuf::from(runtime_dir).join("odx").join("prontodb"))
+        } else {
+            None
+        }
     }
 }
 
@@ -141,7 +244,7 @@ pub mod test_utils {
     impl TestXdg {
         pub fn new() -> std::io::Result<Self> {
             let temp_dir = TempDir::new()?;
-            let paths = XdgPaths::from_home(temp_dir.path());
+            let paths = XdgPaths::from_home_isolated(temp_dir.path());
             paths.ensure_dirs()?;
             
             Ok(TestXdg { temp_dir, paths })
@@ -178,6 +281,7 @@ mod tests {
         assert!(paths.data_dir.ends_with("odx/prontodb"));
         assert!(paths.config_dir.ends_with("odx/prontodb"));
         assert!(paths.cache_dir.ends_with("odx/prontodb"));
+        assert!(paths.cursor_dir.ends_with("cursors"));
         
         // Verify files are in correct locations
         assert!(paths.db_path.ends_with("pronto.db"));
@@ -194,6 +298,7 @@ mod tests {
         assert!(paths.data_dir.exists());
         assert!(paths.config_dir.exists());
         assert!(paths.cache_dir.exists());
+        assert!(paths.cursor_dir.exists());
     }
 
     #[test]

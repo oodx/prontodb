@@ -9,6 +9,7 @@ repository = "https://github.com/oodx/prontodb"
 [dependencies]
 anyhow = "1"
 base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
 directories = "6"
 rusqlite = { version = "0.37" }                    # default: link to system SQLite
 rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main" }

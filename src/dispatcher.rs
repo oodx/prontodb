@@ -18,6 +18,8 @@ pub struct CommandContext {
     pub project: Option<String>,
     pub namespace: Option<String>,
     pub ns_delim: String,
+    pub cursor: Option<String>,
+    pub user: String,
 }
 
 impl CommandContext {
@@ -33,6 +35,8 @@ impl CommandContext {
         let mut project = None;
         let mut namespace = None;
         let mut ns_delim = ".".to_string();  // Default delimiter
+        let mut cursor = None;
+        let mut user = "default".to_string();  // Default user
 
         let mut i = 1;  // Skip program name
         while i < args.len() {
@@ -43,6 +47,12 @@ impl CommandContext {
                 let flag_name = arg.trim_start_matches("--");
                 if flag_name == "ns-delim" && i + 1 < args.len() {
                     ns_delim = args[i + 1].clone();
+                    i += 2;
+                } else if flag_name == "cursor" && i + 1 < args.len() {
+                    cursor = Some(args[i + 1].clone());
+                    i += 2;
+                } else if flag_name == "user" && i + 1 < args.len() {
+                    user = args[i + 1].clone();
                     i += 2;
                 } else if i + 1 < args.len() && !args[i + 1].starts_with("-") {
                     flags.insert(flag_name.to_string(), args[i + 1].clone());
@@ -88,6 +98,8 @@ impl CommandContext {
             project,
             namespace,
             ns_delim,
+            cursor,
+            user,
         })
     }
 }
@@ -178,13 +190,15 @@ fn handle_set(ctx: CommandContext) -> i32 {
     let key_or_path = &ctx.args[0];
     let value = &ctx.args[1];
     let ttl_flag = ctx.flags.get("ttl").and_then(|s| s.parse::<u64>().ok());
-    if let Err(e) = api::set_value(
+    if let Err(e) = api::set_value_with_cursor(
         ctx.project.as_deref(),
         ctx.namespace.as_deref(),
         key_or_path,
         value,
         &ctx.ns_delim,
         ttl_flag,
+        ctx.cursor.as_deref(),
+        &ctx.user,
     ) {
         eprintln!("{}", e);
         return EXIT_ERROR;
@@ -199,11 +213,13 @@ fn handle_get(ctx: CommandContext) -> i32 {
     }
 
     let key_or_path = &ctx.args[0];
-    match api::get_value(
+    match api::get_value_with_cursor(
         ctx.project.as_deref(),
         ctx.namespace.as_deref(),
         key_or_path,
         &ctx.ns_delim,
+        ctx.cursor.as_deref(),
+        &ctx.user,
     ) {
         Ok(Some(val)) => {
             println!("{}", val);
@@ -224,11 +240,13 @@ fn handle_del(ctx: CommandContext) -> i32 {
     }
 
     let key_or_path = &ctx.args[0];
-    if let Err(e) = api::delete_value(
+    if let Err(e) = api::delete_value_with_cursor(
         ctx.project.as_deref(),
         ctx.namespace.as_deref(),
         key_or_path,
         &ctx.ns_delim,
+        ctx.cursor.as_deref(),
+        &ctx.user,
     ) {
         eprintln!("Failed to delete: {}", e);
         return EXIT_ERROR;
@@ -254,7 +272,7 @@ fn handle_keys(ctx: CommandContext) -> i32 {
     };
     let prefix = ctx.args.get(0).map(|s| s.as_str());
 
-    match api::list_keys(project, namespace, prefix) {
+    match api::list_keys_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
         Ok(keys) => {
             for k in keys {
                 println!("{}", k);
@@ -286,7 +304,7 @@ fn handle_scan(ctx: CommandContext) -> i32 {
     };
     let prefix = ctx.args.get(0).map(|s| s.as_str());
 
-    match api::scan_pairs(project, namespace, prefix) {
+    match api::scan_pairs_with_cursor(project, namespace, prefix, ctx.cursor.as_deref(), &ctx.user) {
         Ok(pairs) => {
             for (k, v) in pairs {
                 println!("{}={}", k, v);
@@ -346,7 +364,7 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
         }
     };
 
-    match api::create_ttl_namespace(project, namespace, timeout) {
+    match api::create_ttl_namespace_with_cursor(project, namespace, timeout, ctx.cursor.as_deref(), &ctx.user) {
         Ok(()) => EXIT_OK,
         Err(e) => {
             eprintln!("Failed to create TTL namespace: {}", e);
@@ -355,8 +373,8 @@ fn handle_create_cache(ctx: CommandContext) -> i32 {
     }
 }
 
-fn handle_projects(_ctx: CommandContext) -> i32 {
-    match api::projects() {
+fn handle_projects(ctx: CommandContext) -> i32 {
+    match api::projects_with_cursor(ctx.cursor.as_deref(), &ctx.user) {
         Ok(list) => {
             for p in list { println!("{}", p); }
             EXIT_OK
@@ -373,7 +391,7 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
             return EXIT_ERROR;
         }
     };
-    match api::namespaces(project) {
+    match api::namespaces_with_cursor(project, ctx.cursor.as_deref(), &ctx.user) {
         Ok(list) => { for n in list { println!("{}", n); } EXIT_OK }
         Err(e) => { eprintln!("{}", e); EXIT_ERROR }
     }
@@ -381,9 +399,9 @@ fn handle_namespaces(ctx: CommandContext) -> i32 {
 
 fn handle_nss(ctx: CommandContext) -> i32 {
     // Aggregate namespaces across projects
-    let projects = match api::projects() { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
+    let projects = match api::projects_with_cursor(ctx.cursor.as_deref(), &ctx.user) { Ok(p) => p, Err(e) => { eprintln!("{}", e); return EXIT_ERROR; } };
     for p in projects {
-        match api::namespaces(&p) {
+        match api::namespaces_with_cursor(&p, ctx.cursor.as_deref(), &ctx.user) {
             Ok(list) => { for n in list { println!("{}{}{}", p, ctx.ns_delim, n); } }
             Err(e) => { eprintln!("{}", e); return EXIT_ERROR; }
         }

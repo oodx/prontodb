@@ -1,15 +1,19 @@
 // ProntoDB MVP Library
 pub mod addressing;
 pub mod api;
+pub mod backup;
+pub mod cursor;
 pub mod dispatcher;
 pub mod storage;
 pub mod xdg;
 
 // Import RSB for command handlers
-use rsb::prelude::*;
+// (RSB Args type already available via main.rs imports)
 
 // Re-export key types for convenience  
 pub use addressing::Address;
+pub use backup::{BackupManager, BackupResult, BackupError};
+pub use cursor::{CursorData, CursorManager};
 pub use storage::Storage;
 pub use xdg::XdgPaths;
 
@@ -94,7 +98,11 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("ProntoDB - Fast namespaced key-value store with TTL support");
     println!();
     println!("USAGE:");
-    println!("  prontodb <command> [options] [arguments]");
+    println!("  prontodb [--cursor <name>] [--user <user>] <command> [options] [arguments]");
+    println!();
+    println!("GLOBAL FLAGS:");
+    println!("  --cursor <name>            Use named cursor for database context");
+    println!("  --user <user>              Use specific user context (default: 'default')");
     println!();
     println!("DOT ADDRESSING (Primary):");
     println!("  prontodb set project.namespace.key \"value\"");
@@ -112,6 +120,12 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("  del <address>              Delete a value");
     println!("  keys [prefix]              List all keys, optionally with prefix");
     println!("  scan [prefix]              List key-value pairs, optionally with prefix");
+    println!();
+    println!("CURSOR MANAGEMENT:");
+    println!("  cursor set <name> <path>   Set cursor to database path");
+    println!("  cursor list                List all cursors for user");
+    println!("  cursor active              Show active cursor for user");
+    println!("  cursor delete <name>       Delete named cursor");
     println!();
     println!("DISCOVERY:");
     println!("  projects                   List all projects");
@@ -132,6 +146,17 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("  prontodb set myapp.config.database_host \"prod.db.com\"");
     println!("  prontodb set myapp.config.api_key__prod \"secret123\"");
     println!();
+    println!("  # Use cursors for multi-database workflows");
+    println!("  prontodb cursor set staging /path/to/staging.db");
+    println!("  prontodb cursor set prod /path/to/production.db");
+    println!("  prontodb --cursor staging set app.debug true");
+    println!("  prontodb --cursor prod set app.debug false");
+    println!();
+    println!("  # Multi-user environments");
+    println!("  prontodb --user alice cursor set dev /alice/dev.db");
+    println!("  prontodb --user bob cursor set dev /bob/dev.db");
+    println!("  prontodb --user alice --cursor dev set config.key value");
+    println!();
     println!("  # Retrieve and check exit codes");
     println!("  prontodb get myapp.config.database_host");
     println!("  echo $?  # 0=found, 2=not found, 1=error");
@@ -147,6 +172,136 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!();
     println!("For more examples and documentation, see README.md");
     0
+}
+
+pub fn do_cursor(args: rsb::args::Args) -> i32 {
+    let mut vec_args = vec!["prontodb".to_string(), "cursor".to_string()];
+    vec_args.extend(args.all().iter().cloned());
+    
+    // Parse cursor subcommand
+    if vec_args.len() < 3 {
+        eprintln!("cursor: Missing subcommand");
+        eprintln!("Usage: prontodb cursor <set|list|active|delete> [arguments]");
+        return 1;
+    }
+    
+    let subcommand = vec_args[2].clone();
+    let cursor_manager = CursorManager::new();
+    
+    // Parse global flags for user context
+    let mut user = "default".to_string();
+    let mut i = 3;
+    while i < vec_args.len() {
+        if vec_args[i] == "--user" && i + 1 < vec_args.len() {
+            user = vec_args[i + 1].clone();
+            vec_args.remove(i);  // Remove --user
+            vec_args.remove(i);  // Remove value (index doesn't change after first remove)
+        } else {
+            i += 1;
+        }
+    }
+    
+    match subcommand.as_str() {
+        "set" => {
+            if vec_args.len() < 5 {
+                eprintln!("cursor set: Missing arguments");
+                eprintln!("Usage: prontodb cursor set <name> <database_path> [--user <user>]");
+                return 1;
+            }
+            
+            let cursor_name = &vec_args[3];
+            let db_path = std::path::PathBuf::from(&vec_args[4]);
+            
+            cursor_manager.set_cursor(cursor_name, db_path.clone(), &user);
+            println!("Cursor '{}' set to '{}' for user '{}'", cursor_name, db_path.display(), user);
+            0
+        }
+        
+        "list" => {
+            match cursor_manager.list_cursors(&user) {
+                Ok(cursors) => {
+                    if cursors.is_empty() {
+                        println!("No cursors found for user '{}'", user);
+                    } else {
+                        println!("Cursors for user '{}':", user);
+                        for (name, cursor_data) in cursors {
+                            println!("  {}: {} (created: {})", 
+                                   name, 
+                                   cursor_data.database_path.display(),
+                                   cursor_data.created_at);
+                            if let Some(ref project) = cursor_data.default_project {
+                                println!("    Default project: {}", project);
+                            }
+                            if let Some(ref namespace) = cursor_data.default_namespace {
+                                println!("    Default namespace: {}", namespace);
+                            }
+                        }
+                    }
+                    0
+                }
+                Err(e) => {
+                    eprintln!("cursor list: Failed to list cursors: {}", e);
+                    1
+                }
+            }
+        }
+        
+        "active" => {
+            match cursor_manager.get_active_cursor(&user) {
+                Ok(Some(cursor)) => {
+                    println!("Active cursor for user '{}':", user);
+                    println!("  Database: {}", cursor.database_path.display());
+                    if let Some(ref project) = cursor.default_project {
+                        println!("  Default project: {}", project);
+                    }
+                    if let Some(ref namespace) = cursor.default_namespace {
+                        println!("  Default namespace: {}", namespace);
+                    }
+                    println!("  Created: {}", cursor.created_at);
+                    0
+                }
+                Ok(None) => {
+                    println!("No active cursor for user '{}'", user);
+                    2
+                }
+                Err(e) => {
+                    eprintln!("cursor active: Failed to get active cursor: {}", e);
+                    1
+                }
+            }
+        }
+        
+        "delete" => {
+            if vec_args.len() < 4 {
+                eprintln!("cursor delete: Missing cursor name");
+                eprintln!("Usage: prontodb cursor delete <name> [--user <user>]");
+                return 1;
+            }
+            
+            let cursor_name = &vec_args[3];
+            
+            match cursor_manager.delete_cursor(cursor_name, &user) {
+                Ok(true) => {
+                    println!("Cursor '{}' deleted for user '{}'", cursor_name, user);
+                    0
+                }
+                Ok(false) => {
+                    eprintln!("cursor delete: Cursor '{}' not found for user '{}'", cursor_name, user);
+                    2
+                }
+                Err(e) => {
+                    eprintln!("cursor delete: Failed to delete cursor: {}", e);
+                    1
+                }
+            }
+        }
+        
+        _ => {
+            eprintln!("cursor: Unknown subcommand '{}'", subcommand);
+            eprintln!("Usage: prontodb cursor <set|list|active|delete> [arguments]");
+            1
+        }
+    }
 }
 
 // TDD infrastructure validation function for Card 001
