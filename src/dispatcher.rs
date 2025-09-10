@@ -512,6 +512,21 @@ fn handle_cursor(ctx: CommandContext) -> i32 {
             }
         }
         
+        "active" => {
+            // Display current active cursor
+            let cache_user = if ctx.user == "default" { None } else { Some(ctx.user.as_str()) };
+            match cache.get_cursor(cache_user) {
+                Some(database) => {
+                    println!("Current cursor: {} (for user '{}')", database, ctx.user);
+                    EXIT_OK
+                }
+                None => {
+                    println!("No active cursor set (using default database)");
+                    EXIT_OK
+                }
+            }
+        }
+        
         database_name => {
             // Set cursor to database name
             let cache_user = if ctx.user == "default" { None } else { Some(ctx.user.as_str()) };

@@ -6,6 +6,13 @@
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum AddressContext {
+    KeyAccess,   // get/set/del operations - traditional namespace.key  
+    Discovery,   // keys/scan operations - project.namespace discovery
+    Auto,        // Attempt intelligent detection
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Address {
     pub project: String,
     pub namespace: String,
@@ -14,62 +21,77 @@ pub struct Address {
 }
 
 impl Address {
-    // Parse a canonical path with given delimiter
-    pub fn parse(path: &str, delimiter: &str) -> Result<Self, String> {
+    // Context-aware parsing for resolving 2-part addressing ambiguity
+    pub fn parse_with_context(path: &str, delimiter: &str, context: AddressContext) -> Result<Self, String> {
         // Handle context suffix if present
-        let (base_path, context) = if let Some(idx) = path.rfind("__") {
-            let ctx = &path[idx + 2..];
-            if ctx.is_empty() {
-                return Err("Context suffix '__' requires a value".to_string());
-            }
-            (&path[..idx], Some(ctx.to_string()))
+        let (base_path, ctx_suffix) = if let Some(idx) = path.rfind("__") {
+            (&path[..idx], Some(path[idx+2..].to_string()))
         } else {
             (path, None)
         };
 
-        // Split by delimiter
         let parts: Vec<&str> = base_path.split(delimiter).collect();
         
         match parts.len() {
             0 => Err("Empty path".to_string()),
             1 => {
-                // Just a key - use defaults
+                // Single part: treat as key in default project/namespace
                 Ok(Address {
                     project: "default".to_string(),
                     namespace: "default".to_string(),
                     key: parts[0].to_string(),
-                    context,
+                    context: ctx_suffix,
                 })
             }
             2 => {
-                // namespace.key - use default project
-                Ok(Address {
-                    project: "default".to_string(),
-                    namespace: parts[0].to_string(),
-                    key: parts[1].to_string(),
-                    context,
-                })
+                // Two parts: context determines interpretation
+                match context {
+                    AddressContext::KeyAccess => {
+                        // Traditional: namespace.key -> default.namespace.key
+                        Ok(Address {
+                            project: "default".to_string(),
+                            namespace: parts[0].to_string(),
+                            key: parts[1].to_string(),
+                            context: ctx_suffix,
+                        })
+                    }
+                    AddressContext::Discovery => {
+                        // Discovery: project.namespace -> project.namespace.""
+                        Ok(Address {
+                            project: parts[0].to_string(),
+                            namespace: parts[1].to_string(),
+                            key: "".to_string(),
+                            context: ctx_suffix,
+                        })
+                    }
+                    AddressContext::Auto => {
+                        // Default to KeyAccess for backward compatibility
+                        Ok(Address {
+                            project: "default".to_string(),
+                            namespace: parts[0].to_string(),
+                            key: parts[1].to_string(),
+                            context: ctx_suffix,
+                        })
+                    }
+                }
             }
             3 => {
-                // project.namespace.key
+                // Three parts: project.namespace.key (unambiguous)
                 Ok(Address {
                     project: parts[0].to_string(),
                     namespace: parts[1].to_string(),
                     key: parts[2].to_string(),
-                    context,
+                    context: ctx_suffix,
                 })
             }
-            _ => {
-                // More than 3 parts - join the rest as key
-                // This allows keys with delimiters if quoted properly
-                Ok(Address {
-                    project: parts[0].to_string(),
-                    namespace: parts[1].to_string(),
-                    key: parts[2..].join(delimiter),
-                    context,
-                })
-            }
+            _ => Err("Too many parts in path".to_string()),
         }
+    }
+
+    // Parse a canonical path with given delimiter (backward compatibility)
+    pub fn parse(path: &str, delimiter: &str) -> Result<Self, String> {
+        // Default to KeyAccess for existing callers
+        Self::parse_with_context(path, delimiter, AddressContext::KeyAccess)
     }
 
     // Build address from components

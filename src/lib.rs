@@ -370,6 +370,37 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
             }
         }
         
+        "active" => {
+            // Display current active cursor  
+            // Parse --user flag from remaining args since RSB doesn't handle global flags here
+            let mut user: Option<String> = None;
+            let mut i = 1;
+            while i < arg_list.len() {
+                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+                    user = Some(arg_list[i + 1].clone());
+                    break;
+                }
+                i += 1;
+            }
+            
+            let cache_user = match user.as_deref() {
+                Some(u) if u != "default" => Some(u),
+                _ => None,
+            };
+            
+            let user_display = user.as_deref().unwrap_or("default");
+            match cache.get_cursor(cache_user) {
+                Some(database) => {
+                    println!("Current cursor: {} (for user '{}')", database, user_display);
+                    0
+                }
+                None => {
+                    println!("No active cursor set (using default database)");
+                    0
+                }
+            }
+        }
+        
         database_name => {
             // Parse --user flag from remaining args since RSB doesn't handle global flags here
             let mut user: Option<String> = None;

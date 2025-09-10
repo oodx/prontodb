@@ -1,6 +1,6 @@
 #![allow(dead_code)]  // Functions are exported for library use
 
-use crate::addressing::Address;
+use crate::addressing::{Address, AddressContext};
 use crate::cursor::CursorManager;
 use crate::storage::Storage;
 use crate::xdg::XdgPaths;
@@ -60,9 +60,10 @@ fn parse_address_from_parts(
     namespace: Option<&str>,
     key_or_path: &str,
     ns_delim: &str,
+    context: AddressContext,
 ) -> Result<Address, String> {
     if key_or_path.contains(ns_delim) {
-        Address::parse(key_or_path, ns_delim)
+        Address::parse_with_context(key_or_path, ns_delim, context)
     } else {
         let (key, context) = if let Some(idx) = key_or_path.rfind("__") {
             let k = &key_or_path[..idx];
@@ -104,7 +105,7 @@ pub fn set_value_with_database(
     db_name: &str,
 ) -> Result<(), String> {
     let storage = open_storage_with_database(db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     addr.validate_key(ns_delim)?;
 
     let ns_default_ttl = storage
@@ -139,7 +140,7 @@ pub fn get_value_with_database(
     db_name: &str,
 ) -> Result<Option<String>, String> {
     let storage = open_storage_with_database(db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     storage.get(&addr).map_err(|e| e.to_string())
 }
 
@@ -160,7 +161,7 @@ pub fn delete_value_with_database(
     db_name: &str,
 ) -> Result<(), String> {
     let storage = open_storage_with_database(db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     storage.delete(&addr).map_err(|e| e.to_string())
 }
 
@@ -251,7 +252,7 @@ pub struct SetValueConfig<'a> {
 
 pub fn set_value_with_cursor(config: SetValueConfig) -> Result<(), String> {
     let storage = open_storage_with_cursor_and_database(config.cursor_name, config.user, config.database)?;
-    let addr = parse_address_from_parts(config.project, config.namespace, config.key_or_path, config.ns_delim)?;
+    let addr = parse_address_from_parts(config.project, config.namespace, config.key_or_path, config.ns_delim, AddressContext::KeyAccess)?;
     addr.validate_key(config.ns_delim)?;
 
     let ns_default_ttl = storage
@@ -290,7 +291,7 @@ pub fn get_value_with_cursor_and_database(
     db_name: &str,
 ) -> Result<Option<String>, String> {
     let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     storage.get(&addr).map_err(|e| e.to_string())
 }
 
@@ -315,7 +316,7 @@ pub fn delete_value_with_cursor_and_database(
     db_name: &str,
 ) -> Result<(), String> {
     let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     storage.delete(&addr).map_err(|e| e.to_string())
 }
 
@@ -389,7 +390,7 @@ pub fn list_keys_flexible_with_database(
     db_name: &str,
 ) -> Result<Vec<String>, String> {
     let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::Discovery)?;
     
     // For keys command, the "key" part becomes the prefix
     let prefix = if addr.key.is_empty() { None } else { Some(addr.key.as_str()) };
@@ -420,7 +421,7 @@ pub fn scan_pairs_flexible_with_database(
     db_name: &str,
 ) -> Result<Vec<(String, String)>, String> {
     let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim)?;
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::Discovery)?;
     
     // For scan command, the "key" part becomes the prefix
     let prefix = if addr.key.is_empty() { None } else { Some(addr.key.as_str()) };
