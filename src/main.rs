@@ -144,6 +144,7 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
     // Parse uninstall options
     let mut target_dir = None;
     let mut purge = false;
+    let mut nuke = false;
     let mut force = false;
     let mut quiet = false;
     
@@ -157,6 +158,11 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
             }
             "--purge" | "-p" => {
                 purge = true;
+                i += 1;
+            }
+            "--nuke" => {
+                nuke = true;
+                purge = true; // --nuke implies --purge
                 i += 1;
             }
             "--force" | "-f" => {
@@ -176,6 +182,7 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
                 println!("OPTIONS:");
                 println!("  -t, --target <DIR>    Uninstall from specific directory (default: ~/.local/bin)");
                 println!("  -p, --purge           Remove all data, config, and cursors (requires confirmation)");
+                println!("      --nuke            Remove everything with automatic safety backup (requires confirmation)");
                 println!("  -f, --force           Skip confirmation prompts");
                 println!("  -q, --quiet           Suppress output messages");
                 println!("  -h, --help            Show this help message");
@@ -183,9 +190,10 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
                 println!("EXAMPLES:");
                 println!("  prontodb uninstall                # Remove binary only");
                 println!("  prontodb uninstall --purge        # Remove binary and all data (with confirmation)");
-                println!("  prontodb uninstall --purge -f     # Remove everything without confirmation");
+                println!("  prontodb uninstall --nuke         # Nuclear option: backup then remove everything");
+                println!("  prontodb uninstall --nuke -f      # Nuclear without confirmation (backup still created)");
                 println!();
-                println!("WARNING: --purge will permanently delete all ProntoDB data and cannot be undone!");
+                println!("WARNING: --purge will permanently delete all data! --nuke creates safety backup first.");
                 return 0;
             }
             _ => {
@@ -254,6 +262,34 @@ fn do_uninstall(args: rsb::args::Args) -> i32 {
         println!("Binary removed: {}", target_exe.display());
     }
     
+    // Handle --nuke safety backup before purge
+    if nuke && purge {
+        if !quiet {
+            println!("Creating safety backup before nuclear uninstall...");
+        }
+        
+        // Create automatic safety backup with nuke timestamp
+        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+        let backup_args = vec![
+            "backup".to_string(),
+            "--output".to_string(),
+            format!("~/repos/zindex/cache/backup/safety_backup_nuke_{}.tar.gz", timestamp)
+        ];
+        
+        let backup_args_obj = rsb::args::Args::new(&backup_args);
+        let backup_result = commands::handle_backup_command(backup_args_obj);
+        
+        if backup_result != 0 {
+            eprintln!("uninstall: Failed to create safety backup, aborting nuclear uninstall");
+            eprintln!("Use --purge instead of --nuke if you want to proceed without backup");
+            return backup_result;
+        }
+        
+        if !quiet {
+            println!("Safety backup created successfully!");
+        }
+    }
+    
     // Handle purge if requested
     if purge {
         let paths = xdg::XdgPaths::new();
@@ -320,6 +356,15 @@ fn do_backup(args: rsb::args::Args) -> i32 {
     commands::handle_backup_command(args)
 }
 
+fn do_restore(args: rsb::args::Args) -> i32 {
+    // Create modified args for restore operation 
+    let mut restore_args = vec!["--restore".to_string()];
+    restore_args.extend(args.all().iter().cloned());
+    
+    let restore_args_obj = rsb::args::Args::new(&restore_args);
+    commands::handle_backup_command(restore_args_obj)
+}
+
 fn main() {
     // Check for version and help flags first (highest priority)
     let raw_args: Vec<String> = std::env::args().collect();
@@ -347,11 +392,12 @@ fn main() {
     // RSB canonical lifecycle pattern for normal commands (without global flags)
     let args = bootstrap!();           // RSB initialization
     
-    // Pre-dispatch for lifecycle commands (install/uninstall/backup)
+    // Pre-dispatch for lifecycle commands (install/uninstall/backup/restore)
     if pre_dispatch!(&args, {         // Use Args type, not Vec<String>
         "install" => do_install,       // RSB naming convention
         "uninstall" => do_uninstall,
-        "backup" => do_backup
+        "backup" => do_backup,
+        "restore" => do_restore
     }) {
         return;  // RSB handles exit automatically
     }

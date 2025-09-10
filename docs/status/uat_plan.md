@@ -1,14 +1,16 @@
 # ProntoDB UAT Verification Plan
 
-**Comprehensive User Acceptance Testing with Full Rewindability**
+**Comprehensive User Acceptance Testing for Production Deployment**
 
 ## 🎯 **Verification Objective**
 
-Validate that ProntoDB is production-ready for infrastructure deployment with:
-- All MVP features working correctly
-- Multi-agent workflow capability
-- Complete lifecycle management
-- Full rewindability and reliability
+Validate that ProntoDB v0.4.0+ is PRODUCTION-READY for internal team deployment with:
+- **100% Internal Deployment Features** - Install/uninstall, backup/restore, cursor CRUD
+- **Multi-agent workflow capability** - User isolation + database contexts  
+- **Complete lifecycle management** - Professional CLI with nuclear safety
+- **Advanced team workflows** - Working directory cursors with opt-in control (PRONTO_WORK_MODE)
+- **Full rewindability and reliability** - Comprehensive backup/restore system
+- **Enterprise safety controls** - Environment variable control for project vs global access
 
 ---
 
@@ -77,18 +79,38 @@ After automated tests pass, verify these additional scenarios:
 | **User Isolation** | `prontodb --user bob --cursor dev get user.name` | Exit code 2 | ⬜ |
 | **Combined Flags** | `prontodb --user alice --cursor dev get user.name` | Output: `Alice` | ⬜ |
 
-### **Phase 6: Lifecycle Commands**
+### **Phase 6: Production Lifecycle Commands**
 | Feature | Test Command | Expected Result | Status |
 |---------|--------------|-----------------|--------|
 | **Install Help** | `prontodb install --help` | Shows usage info | ⬜ |
 | **Install Binary** | `prontodb install --target /tmp/test_install` | Binary created | ⬜ |
-| **Test Installed** | `/tmp/test_install --version` | Version displayed | ⬜ |
+| **Test Installed** | `/tmp/test_install/prontodb --version` | Version displayed | ⬜ |
 | **Backup Create** | `prontodb backup --output /tmp/backup.tar.gz` | Backup file created | ⬜ |
 | **Backup List** | `prontodb backup --list` | Shows backup files | ⬜ |
-| **Backup Restore** | `prontodb backup --restore /tmp/backup.tar.gz` | Data restored | ⬜ |
+| **Standalone Restore** | `prontodb restore /tmp/backup.tar.gz` | Data restored | ⬜ |
+| **Nuclear Safety** | `prontodb uninstall --nuke --force` | Safety backup created | ⬜ |
 | **Uninstall Help** | `prontodb uninstall --help` | Shows usage info | ⬜ |
 
-### **Phase 7: Help & Version System**
+### **Phase 7: Advanced Cursor CRUD**
+| Feature | Test Command | Expected Result | Status |
+|---------|--------------|-----------------|--------|
+| **Cursor Delete** | `prontodb cursor delete test_cursor` | Cursor removed | ⬜ |
+| **Cursor Reset User** | `prontodb cursor reset --user alice` | Alice cursors cleared | ⬜ |
+| **Cursor Reset All** | `prontodb cursor reset --all` | All cursors cleared | ⬜ |
+| **Cursor List After** | `prontodb cursor list` | Shows remaining cursors | ⬜ |
+
+### **Phase 8: Working Directory Cursors (Opt-in)** 
+| Feature | Test Command | Expected Result | Status |
+|---------|--------------|-----------------|--------|
+| **Without Work Mode** | `prontodb set test.key "global"` | Uses global DB (default) | ⬜ |
+| **Create .prontodb** | `echo "/tmp/project1.prdb" > .prontodb` | File created | ⬜ |
+| **Work Mode Off** | `prontodb set project.key "still_global"` | Still uses global DB | ⬜ |
+| **Enable Work Mode** | `PRONTO_WORK_MODE=1 prontodb set project.key "local"` | Uses local database | ⬜ |
+| **Verify Local** | `PRONTO_WORK_MODE=1 prontodb get project.key` | Returns "local" | ⬜ |
+| **Verify Global** | `prontodb get project.key` | Returns "still_global" | ⬜ |
+| **JSON Config** | Create JSON .prontodb with user/cursor mapping | Complex config works | ⬜ |
+
+### **Phase 9: Help & Version System**
 | Feature | Test Command | Expected Result | Status |
 |---------|--------------|-----------------|--------|
 | **Main Help** | `prontodb help` | Complete help with examples | ⬜ |

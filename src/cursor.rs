@@ -303,15 +303,114 @@ impl CursorManager {
         }
     }
 
+    /// Reset (clear) all cursors for a user or globally
+    #[allow(dead_code)]
+    pub fn reset_cursors(&self, user: Option<&str>) -> Result<usize, Box<dyn std::error::Error>> {
+        let mut deleted_count = 0;
+        
+        if let Some(user) = user {
+            // Reset cursors for specific user only
+            let user_cursor_file = self.cursor_dir.join(format!("cursor_{}", user));
+            if user_cursor_file.exists() {
+                fs::remove_file(&user_cursor_file)?;
+                deleted_count += 1;
+            }
+        } else {
+            // Reset all cursors (global and per-user)
+            let cursor_dir = &self.cursor_dir;
+            if cursor_dir.exists() {
+                for entry in fs::read_dir(cursor_dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.is_file() && path.file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.starts_with("cursor"))
+                        .unwrap_or(false) 
+                    {
+                        fs::remove_file(&path)?;
+                        deleted_count += 1;
+                    }
+                }
+            }
+        }
+        
+        Ok(deleted_count)
+    }
+
     /// Resolve database path from cursor name and user
     /// Returns the cursor's database path if found, or None to use default
+    /// Checks for working directory .prontodb file first, then global cursors
     pub fn resolve_database_path(&self, cursor_name: Option<&str>, user: &str) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
         let name = cursor_name.unwrap_or("default");
         
+        // First, check for working directory cursor override
+        if let Some(local_path) = self.resolve_working_directory_cursor(name, user)? {
+            return Ok(Some(local_path));
+        }
+        
+        // Fall back to global cursor system
         match self.get_cursor(name, user) {
             Ok(cursor) => Ok(Some(cursor.database_path)),
             Err(_) => Ok(None),
         }
+    }
+
+    /// Check for working directory cursor file (.prontodb)
+    /// Format supports both simple path and JSON with per-user/per-cursor settings
+    /// Controlled by PRONTO_WORK_MODE environment variable (opt-in)
+    fn resolve_working_directory_cursor(&self, cursor_name: &str, user: &str) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+        // Check if working directory mode is enabled via environment variable
+        let work_mode_enabled = match std::env::var("PRONTO_WORK_MODE") {
+            Ok(val) => val == "1" || val.to_lowercase() == "true" || val.to_lowercase() == "on",
+            Err(_) => false,
+        };
+        
+        if !work_mode_enabled {
+            return Ok(None);
+        }
+        
+        let current_dir = std::env::current_dir()?;
+        let prontodb_file = current_dir.join(".prontodb");
+        
+        if !prontodb_file.exists() {
+            return Ok(None);
+        }
+        
+        let content = fs::read_to_string(&prontodb_file)?;
+        let content = content.trim();
+        
+        // Try parsing as JSON first (advanced format)
+        if content.starts_with('{') {
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                // Check user-specific cursor
+                if let Some(user_cursors) = config.get("users").and_then(|u| u.get(user)) {
+                    if let Some(cursor_path) = user_cursors.get(cursor_name).and_then(|v| v.as_str()) {
+                        return Ok(Some(PathBuf::from(cursor_path)));
+                    }
+                }
+                
+                // Check default cursors
+                if let Some(default_cursors) = config.get("cursors") {
+                    if let Some(cursor_path) = default_cursors.get(cursor_name).and_then(|v| v.as_str()) {
+                        return Ok(Some(PathBuf::from(cursor_path)));
+                    }
+                }
+                
+                // Check simple path for default cursor
+                if cursor_name == "default" {
+                    if let Some(path) = config.get("path").and_then(|v| v.as_str()) {
+                        return Ok(Some(PathBuf::from(path)));
+                    }
+                }
+            }
+        } else {
+            // Simple format - just a path for default cursor
+            if cursor_name == "default" {
+                return Ok(Some(PathBuf::from(content)));
+            }
+        }
+        
+        Ok(None)
     }
 
     /// Ensure default cursor exists for a user

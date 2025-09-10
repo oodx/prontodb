@@ -238,6 +238,8 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
         eprintln!("Usage: prontodb [--user <user>] cursor <database_name>");
         eprintln!("   or: prontodb [--user <user>] cursor list");
         eprintln!("   or: prontodb [--user <user>] cursor clear");
+        eprintln!("   or: prontodb [--user <user>] cursor delete <name>");
+        eprintln!("   or: prontodb [--user <user>] cursor reset [--user <user>|--all]");
         return 1;
     }
     
@@ -281,6 +283,88 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
                 }
                 Err(e) => {
                     eprintln!("cursor clear: Failed to clear cursor cache: {}", e);
+                    1
+                }
+            }
+        }
+        
+        "delete" => {
+            if arg_list.len() < 2 {
+                eprintln!("cursor delete: Missing cursor name");
+                eprintln!("Usage: prontodb [--user <user>] cursor delete <name>");
+                return 1;
+            }
+            
+            let cursor_name = &arg_list[1];
+            
+            // Parse --user flag
+            let mut user = "default".to_string();
+            let mut i = 2;
+            while i < arg_list.len() {
+                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+                    user = arg_list[i + 1].clone();
+                    break;
+                }
+                i += 1;
+            }
+            
+            let cursor_manager = crate::cursor::CursorManager::new();
+            match cursor_manager.delete_cursor(cursor_name, &user) {
+                Ok(deleted) => {
+                    if deleted {
+                        println!("Cursor '{}' deleted for user '{}'", cursor_name, user);
+                        0
+                    } else {
+                        println!("Cursor '{}' not found for user '{}'", cursor_name, user);
+                        1
+                    }
+                }
+                Err(e) => {
+                    eprintln!("cursor delete: Failed to delete cursor: {}", e);
+                    1
+                }
+            }
+        }
+        
+        "reset" => {
+            // Parse flags
+            let mut target_user: Option<String> = None;
+            let mut reset_all = false;
+            
+            let mut i = 1;
+            while i < arg_list.len() {
+                match arg_list[i].as_str() {
+                    "--user" if i + 1 < arg_list.len() => {
+                        target_user = Some(arg_list[i + 1].clone());
+                        i += 2;
+                    }
+                    "--all" => {
+                        reset_all = true;
+                        i += 1;
+                    }
+                    _ => {
+                        eprintln!("cursor reset: Unknown option '{}'", arg_list[i]);
+                        return 1;
+                    }
+                }
+            }
+            
+            let cursor_manager = crate::cursor::CursorManager::new();
+            let reset_user = if reset_all { None } else { target_user.as_deref() };
+            
+            match cursor_manager.reset_cursors(reset_user) {
+                Ok(count) => {
+                    if reset_all {
+                        println!("Reset {} cursors (all users)", count);
+                    } else if let Some(user) = target_user.as_deref() {
+                        println!("Reset {} cursors for user '{}'", count, user);
+                    } else {
+                        println!("Reset {} cursors for default user", count);
+                    }
+                    0
+                }
+                Err(e) => {
+                    eprintln!("cursor reset: Failed to reset cursors: {}", e);
                     1
                 }
             }
