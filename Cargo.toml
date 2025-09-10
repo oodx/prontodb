@@ -3,7 +3,7 @@ name = "prontodb"
 version = "0.5.0"
 edition = "2021"
 description = "ProntoDB — namespaced, file-based KV on SQLite with RSB-style CLI"
-license = "MIT"
+license = "Apache-2.0"
 repository = "https://github.com/oodx/prontodb"
 
 [dependencies]

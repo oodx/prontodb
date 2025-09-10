@@ -142,16 +142,47 @@ pub fn do_noop(args: rsb::args::Args) -> i32 {
     }
 }
 
+pub fn logo() {
+    println!("                                                        ");
+    println!(" ▄▄▄▄▄                         ▄           ▄▄▄▄   ▄▄▄▄▄ ");
+    println!(" █   ▀█  ▄ ▄▄   ▄▄▄   ▄ ▄▄   ▄▄█▄▄   ▄▄▄   █   ▀▄ █    █");
+    println!(" █▄▄▄█▀  █▀  ▀ █▀ ▀█  █▀  █    █    █▀ ▀█  █    █ █▄▄▄▄▀");
+    println!(" █       █     █   █  █   █    █    █   █  █    █ █    █");
+    println!(" █       █     ▀█▄█▀  █   █    ▀▄▄  ▀█▄█▀  █▄▄▄▀  █▄▄▄▄▀");
+    println!("                                                        ");
+}
+
 pub fn do_version(_args: rsb::args::Args) -> i32 {
+    logo();
     println!("prontodb v{}", env!("CARGO_PKG_VERSION"));
+    println!("License: {}", env!("CARGO_PKG_LICENSE"));
     0
 }
 
-pub fn do_help(_args: rsb::args::Args) -> i32 {
+pub fn do_help(args: rsb::args::Args) -> i32 {
+    let arg_list = args.all();
+    
+    // Check for subcommand help pattern: prontodb <command> help
+    if !arg_list.is_empty() {
+        match arg_list[0].as_str() {
+            "cursor" => return print_cursor_help(),
+            "set" => return print_set_help(),
+            "get" => return print_get_help(),
+            "del" => return print_del_help(),
+            "keys" => return print_keys_help(),
+            "scan" => return print_scan_help(),
+            "admin" => return print_admin_help(),
+            "backup" => return print_backup_help(),
+            _ => {} // Fall through to general help
+        }
+    }
+    
+    // General help
     println!("ProntoDB - Fast namespaced key-value store with TTL support");
     println!();
     println!("USAGE:");
     println!("  prontodb [--cursor <name>] [--user <user>] <command> [options] [arguments]");
+    println!("  prontodb <command> help    Show detailed help for specific command");
     println!();
     println!("GLOBAL FLAGS:");
     println!("  --cursor <name>            Use named cursor for database context");
@@ -168,14 +199,14 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("  prontodb get -p project -n namespace key");
     println!();
     println!("CORE COMMANDS:");
-    println!("  set <address> <value>      Store a value");
-    println!("  get <address>              Retrieve a value (exit 2 if not found)");
-    println!("  del <address>              Delete a value");
-    println!("  keys [prefix]              List all keys, optionally with prefix");
-    println!("  scan [prefix]              List key-value pairs, optionally with prefix");
+    println!("  set <address> <value>      Store a value (try: prontodb set help)");
+    println!("  get <address>              Retrieve a value (try: prontodb get help)");
+    println!("  del <address>              Delete a value (try: prontodb del help)");
+    println!("  keys [prefix]              List all keys (try: prontodb keys help)");
+    println!("  scan [prefix]              List key-value pairs (try: prontodb scan help)");
     println!();
     println!("CURSOR MANAGEMENT:");
-    println!("  cursor set <name> <path>   Set cursor to database path");
+    println!("  cursor set <name> <path>   Set cursor to database path (try: prontodb cursor help)");
     println!("  cursor list                List all cursors for user");
     println!("  cursor active              Show active cursor for user");
     println!("  cursor delete <name>       Delete named cursor");
@@ -187,7 +218,7 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!();
     println!("ADMINISTRATION:");
     println!("  create-cache <proj.ns> <ttl_sec>    Create TTL-enabled namespace");
-    println!("  admin <command>                     Administrative operations");
+    println!("  admin <command>                     Administrative operations (try: prontodb admin help)");
     println!();
     println!("OTHER:");
     println!("  stream                     Stream processing mode");
@@ -224,6 +255,183 @@ pub fn do_help(_args: rsb::args::Args) -> i32 {
     println!("  prontodb keys myapp.config");
     println!();
     println!("For more examples and documentation, see README.md");
+    0
+}
+
+fn print_cursor_help() -> i32 {
+    println!("ProntoDB Cursor Management");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb [--user <user>] cursor <subcommand>");
+    println!();
+    println!("SUBCOMMANDS:");
+    println!("  set <name> <path>          Set named cursor to database path");
+    println!("  list                       List all cursors for current user");
+    println!("  active                     Show active cursor for current user");
+    println!("  delete <name>              Delete named cursor");
+    println!("  clear                      Clear active cursor cache");
+    println!("  reset [--user <u>|--all]   Reset cursors for user or all users");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb cursor set staging /path/to/staging.db");
+    println!("  prontodb cursor set prod /path/to/production.db");
+    println!("  prontodb --cursor staging set app.debug true");
+    println!("  prontodb --user alice cursor list");
+    println!("  prontodb cursor delete old_cursor");
+    println!();
+    println!("Cursors allow you to work with multiple databases and switch between them easily.");
+    0
+}
+
+fn print_set_help() -> i32 {
+    println!("ProntoDB Set Command");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb set <address> <value> [--ttl <seconds>]");
+    println!();
+    println!("ADDRESSING FORMATS:");
+    println!("  project.namespace.key      Dot addressing (recommended)");
+    println!("  -p <proj> -n <ns> <key>    Flag addressing");
+    println!("  key__context              Context suffix addressing");
+    println!();
+    println!("OPTIONS:");
+    println!("  --ttl <seconds>           Set TTL expiration in seconds");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb set app.config.debug true");
+    println!("  prontodb set -p app -n config debug false");
+    println!("  prontodb set app.cache.session123 active --ttl 3600");
+    println!("  prontodb set config.db_host__prod \"prod.db.com\"");
+    println!();
+    println!("VALUES:");
+    println!("  Strings, numbers, JSON - all stored as text");
+    println!("  Use quotes for values with spaces or special characters");
+    0
+}
+
+fn print_get_help() -> i32 {
+    println!("ProntoDB Get Command");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb get <address>");
+    println!();
+    println!("ADDRESSING FORMATS:");
+    println!("  project.namespace.key      Dot addressing (recommended)");
+    println!("  -p <proj> -n <ns> <key>    Flag addressing");
+    println!("  key__context              Context suffix addressing");
+    println!();
+    println!("EXIT CODES:");
+    println!("  0 = Value found and printed");
+    println!("  2 = Key not found or expired");
+    println!("  1 = Error occurred");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb get app.config.debug");
+    println!("  prontodb get -p app -n config debug");
+    println!("  prontodb get config.db_host__prod");
+    println!();
+    println!("  # Check exit codes in scripts:");
+    println!("  if prontodb get app.maintenance.enabled; then");
+    println!("    echo \"Maintenance mode is on\"");
+    println!("  fi");
+    0
+}
+
+fn print_del_help() -> i32 {
+    println!("ProntoDB Delete Command");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb del <address>");
+    println!();
+    println!("ADDRESSING FORMATS:");
+    println!("  project.namespace.key      Dot addressing (recommended)");
+    println!("  -p <proj> -n <ns> <key>    Flag addressing");
+    println!("  key__context              Context suffix addressing");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb del app.config.debug");
+    println!("  prontodb del -p app -n config debug");
+    println!("  prontodb del config.db_host__prod");
+    println!();
+    println!("NOTE: Delete operations are permanent and cannot be undone");
+    println!("      Use backup command before bulk deletions");
+    0
+}
+
+fn print_keys_help() -> i32 {
+    println!("ProntoDB Keys Command");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb keys [prefix]");
+    println!("  prontodb keys -p <project> -n <namespace> [prefix]");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb keys                    # All keys");
+    println!("  prontodb keys app.config         # Keys matching prefix");
+    println!("  prontodb keys -p app -n config   # Keys in specific namespace");
+    println!("  prontodb keys -p app -n config debug  # Keys with prefix in namespace");
+    println!();
+    println!("OUTPUT:");
+    println!("  Lists key names only, one per line");
+    println!("  Use 'scan' command to see key-value pairs");
+    0
+}
+
+fn print_scan_help() -> i32 {
+    println!("ProntoDB Scan Command");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb scan [prefix]");
+    println!("  prontodb scan -p <project> -n <namespace> [prefix]");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb scan                    # All key-value pairs");
+    println!("  prontodb scan app.config         # Pairs matching prefix");
+    println!("  prontodb scan -p app -n config   # Pairs in specific namespace");
+    println!();
+    println!("OUTPUT FORMAT:");
+    println!("  key=value");
+    println!("  One pair per line");
+    println!();
+    println!("NOTE: Use 'keys' command to list key names only");
+    0
+}
+
+fn print_admin_help() -> i32 {
+    println!("ProntoDB Admin Commands");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb admin <subcommand>");
+    println!();
+    println!("SUBCOMMANDS:");
+    println!("  create-cache              Create TTL-enabled namespace");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb admin create-cache sessions.cache 3600");
+    println!();
+    println!("Admin commands require appropriate permissions and should be");
+    println!("used carefully in production environments.");
+    0
+}
+
+fn print_backup_help() -> i32 {
+    println!("ProntoDB Backup Commands");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb backup --output <directory>");
+    println!("  prontodb backup --restore <backup-file>");
+    println!("  prontodb backup --list");
+    println!();
+    println!("OPTIONS:");
+    println!("  --output <dir>            Create backup in directory");
+    println!("  --restore <file>          Restore from backup file");
+    println!("  --list                    List recent backups");
+    println!("  --quiet                   Suppress progress output");
+    println!();
+    println!("EXAMPLES:");
+    println!("  prontodb backup --output /backups");
+    println!("  prontodb backup --restore /backups/prontodb-backup-20250101.tar.gz");
+    println!("  prontodb backup --list");
     0
 }
 

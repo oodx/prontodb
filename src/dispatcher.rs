@@ -562,7 +562,17 @@ fn handle_admin(ctx: CommandContext) -> i32 {
 
 
 fn print_version() {
+    // ASCII art logo
+    println!("                                                        ");
+    println!(" ▄▄▄▄▄                         ▄           ▄▄▄▄   ▄▄▄▄▄ ");
+    println!(" █   ▀█  ▄ ▄▄   ▄▄▄   ▄ ▄▄   ▄▄█▄▄   ▄▄▄   █   ▀▄ █    █");
+    println!(" █▄▄▄█▀  █▀  ▀ █▀ ▀█  █▀  █    █    █▀ ▀█  █    █ █▄▄▄▄▀");
+    println!(" █       █     █   █  █   █    █    █   █  █    █ █    █");
+    println!(" █       █     ▀█▄█▀  █   █    ▀▄▄  ▀█▄█▀  █▄▄▄▀  █▄▄▄▄▀");
+    println!("                                                        ");
+    
     println!("prontodb {}", env!("CARGO_PKG_VERSION"));
+    println!("License: {}", env!("CARGO_PKG_LICENSE"));
 }
 
 fn print_help() {
