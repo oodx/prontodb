@@ -7,6 +7,7 @@ pub mod cursor_cache;
 pub mod dispatcher;
 pub mod pipe_cache;
 pub mod storage;
+pub mod streaming;
 pub mod validation;
 pub mod xdg;
 

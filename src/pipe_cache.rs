@@ -76,11 +76,13 @@ pub fn detect_and_prepare_pipe_cache(
 }
 
 /// Check if a key looks like a pipe cache entry
+#[allow(dead_code)]
 pub fn is_pipe_cache_key(key: &str) -> bool {
     key.starts_with("pipe.cache.")
 }
 
 /// Suggest XStream format for cached content (progressive education)
+#[allow(dead_code)]
 pub fn suggest_xstream_format(cache_key: &str, target_address: &str) -> String {
     format!(
         "💡 XStream format: echo \"ns={}; key=$(cat {});\" | prontodb stream", 

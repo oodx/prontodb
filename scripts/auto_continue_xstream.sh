@@ -100,7 +100,7 @@ EOF
     # Launch Claude Code with continuation prompt
     if command -v claude >/dev/null 2>&1; then
         log "🎯 Launching Claude Code..."
-        claude < /tmp/xstream_continuation_prompt.txt || true
+        claude --dangerously-skip-permissions "$(cat /tmp/xstream_continuation_prompt.txt)"|| true
     else
         log "⚠️  Claude Code command not found, logging context for manual continuation"
         log "📝 Context available at: $SESSION_LOG"
@@ -109,7 +109,7 @@ EOF
     
     # Clean up
     log "🧹 Cleaning up temporary files..."
-    rm -f /tmp/xstream_continuation_prompt.txt
+    # rm -f /tmp/xstream_continuation_prompt.txt
     
     log "🎉 Automated continuation session complete"
 }

@@ -10,6 +10,7 @@ mod commands;
 mod cursor;
 mod cursor_cache;
 mod pipe_cache;
+mod streaming;
 mod validation;
 
 // Use RSB prelude for macros (bootstrap!/pre_dispatch!/dispatch!)

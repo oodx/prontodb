@@ -503,9 +503,23 @@ fn handle_nss(ctx: CommandContext) -> i32 {
 }
 
 fn handle_stream(_ctx: CommandContext) -> i32 {
-    // MVP: streams not implemented; security required by default
-    eprintln!("stream: security/auth required (feature deferred)");
-    EXIT_ERROR
+    use crate::streaming;
+    
+    // Check if streaming feature is enabled
+    if !streaming::is_streaming_enabled() {
+        eprintln!("Streaming feature not enabled. Build with '--features streaming' to enable XStream integration.");
+        eprintln!("Use: cargo build --features streaming");
+        return EXIT_ERROR;
+    }
+    
+    // Handle the stream command
+    match streaming::handle_stream_command() {
+        Ok(()) => EXIT_OK,
+        Err(e) => {
+            eprintln!("Stream error: {}", e);
+            EXIT_ERROR
+        }
+    }
 }
 
 fn handle_cursor(ctx: CommandContext) -> i32 {
