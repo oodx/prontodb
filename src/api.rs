@@ -444,7 +444,7 @@ pub fn get_value_with_cursor_and_database(
     // Apply meta context transformation
     let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
     
-    if let Some(meta) = &meta_context {
+    if meta_context.is_some() {
         // Try meta-prefixed key first
         let meta_addr = transform_address_for_storage(&user_addr, &meta_context);
         if let Ok(Some(value)) = storage.get(&meta_addr) {

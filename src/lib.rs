@@ -497,7 +497,13 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
             let mut i = 3;
             while i < arg_list.len() {
                 if arg_list[i] == "--meta" && i + 1 < arg_list.len() {
-                    meta_context = Some(arg_list[i + 1].clone());
+                    let meta_value = &arg_list[i + 1];
+                    // Validate meta context using project name validation (same rules)
+                    if let Err(e) = crate::validation::validate_project_name(meta_value) {
+                        eprintln!("Error: Invalid meta context '{}': {}", meta_value, e);
+                        return 1;
+                    }
+                    meta_context = Some(meta_value.clone());
                     break;
                 }
                 i += 1;

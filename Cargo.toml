@@ -1,6 +1,6 @@
 [package]
 name = "prontodb"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 description = "ProntoDB — namespaced, file-based KV on SQLite with RSB-style CLI"
 license = "Apache-2.0"

@@ -509,7 +509,16 @@ fn handle_cursor(ctx: CommandContext) -> i32 {
             let db_path = PathBuf::from(&ctx.args[2]);
             
             // Parse optional --meta flag from flags map
-            let meta_context = ctx.flags.get("meta").cloned();
+            let meta_context = if let Some(meta_value) = ctx.flags.get("meta") {
+                // Validate meta context using project name validation (same rules)
+                if let Err(e) = crate::validation::validate_project_name(meta_value) {
+                    eprintln!("Error: Invalid meta context '{}': {}", meta_value, e);
+                    return EXIT_ERROR;
+                }
+                Some(meta_value.clone())
+            } else {
+                None
+            };
             
             // Set cursor using CursorManager
             cursor_manager.set_cursor_with_meta(

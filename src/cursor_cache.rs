@@ -90,6 +90,7 @@ impl CursorCache {
     }
 
     /// List all cursor cache files (for debugging/admin purposes)
+    #[allow(dead_code)]  // Future feature for cursor management
     pub fn list_all_cursors(&self) -> Vec<(String, String)> {
         let mut cursors = Vec::new();
         

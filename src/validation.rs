@@ -77,6 +77,7 @@ pub fn validate_username(username: &str) -> Result<(), ValidationError> {
 }
 
 /// Validate a database name (convenience wrapper with database-specific max length)
+#[allow(dead_code)]  // Future feature for database name validation
 pub fn validate_database_name(db_name: &str) -> Result<(), ValidationError> {
     validate_name(db_name, Some(64)) // 64 char limit for database names
 }
@@ -87,6 +88,7 @@ pub fn validate_project_name(project_name: &str) -> Result<(), ValidationError> 
 }
 
 /// Validate a namespace name (convenience wrapper)
+#[allow(dead_code)]  // Future feature for namespace validation
 pub fn validate_namespace_name(namespace_name: &str) -> Result<(), ValidationError> {
     validate_name(namespace_name, Some(64))
 }

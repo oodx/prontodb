@@ -288,14 +288,14 @@ impl CursorManager {
                     }
                 } else {
                     // For specific users, match exact suffix
-                    filename.ends_with(&format!(".{}.cursor", user))
+                    filename.ends_with(user_suffix)
                 };
                 
                 if matches_user {
                     let cursor_name = if user == "default" {
                         filename.strip_suffix(".cursor").unwrap_or(filename)
                     } else {
-                        filename.strip_suffix(&format!(".{}.cursor", user)).unwrap_or(filename)
+                        filename.strip_suffix(user_suffix).unwrap_or(filename)
                     };
                     
                     // Only add if not already found (database-scoped takes precedence over legacy)
