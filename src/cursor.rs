@@ -17,6 +17,7 @@ pub struct CursorData {
     pub database_path: PathBuf,
     pub default_project: Option<String>,
     pub default_namespace: Option<String>,
+    pub meta_context: Option<String>,
     pub created_at: String,
     pub user: String,
 }
@@ -38,6 +39,7 @@ impl CursorData {
             database_path,
             default_project: None,
             default_namespace: None,
+            meta_context: None,
             created_at,
             user,
         }
@@ -54,6 +56,13 @@ impl CursorData {
     #[allow(dead_code)]
     pub fn with_namespace(mut self, namespace: String) -> Self {
         self.default_namespace = Some(namespace);
+        self
+    }
+
+    /// Set meta context for this cursor
+    #[allow(dead_code)]
+    pub fn with_meta_context(mut self, meta_context: String) -> Self {
+        self.meta_context = Some(meta_context);
         self
     }
 }
@@ -141,6 +150,31 @@ impl CursorManager {
             .expect("Failed to serialize cursor data with defaults");
         fs::write(&cursor_file, json_content)
             .expect("Failed to write cursor file with defaults");
+    }
+
+    /// Set a cursor with meta context for enhanced 4-layer addressing
+    pub fn set_cursor_with_meta(
+        &self,
+        name: &str,
+        database_path: PathBuf,
+        user: &str,
+        meta_context: Option<String>,
+        project: Option<String>,
+        namespace: Option<String>,
+    ) {
+        let mut cursor_data = CursorData::new(database_path.clone(), user.to_string());
+        cursor_data.meta_context = meta_context;
+        cursor_data.default_project = project;
+        cursor_data.default_namespace = namespace;
+        
+        // Determine database name and use database-scoped storage
+        let db_name = self.extract_database_name(&database_path);
+        let cursor_file = self.get_cursor_file_path_scoped(name, user, &db_name);
+        
+        let json_content = serde_json::to_string_pretty(&cursor_data)
+            .expect("Failed to serialize cursor data with meta context");
+        fs::write(&cursor_file, json_content)
+            .expect("Failed to write cursor file with meta context");
     }
 
     /// Get cursor data for a named cursor (with backward compatibility)
@@ -574,6 +608,20 @@ mod tests {
         
         assert_eq!(cursor.default_project, Some("myproject".to_string()));
         assert_eq!(cursor.default_namespace, Some("config".to_string()));
+        assert!(cursor.meta_context.is_none());
+    }
+
+    #[test]
+    fn test_cursor_data_with_meta_context() {
+        let db_path = PathBuf::from("/test/db.sqlite");
+        let cursor = CursorData::new(db_path, "testuser".to_string())
+            .with_meta_context("company_engineering".to_string())
+            .with_project("bashfx".to_string())
+            .with_namespace("config".to_string());
+        
+        assert_eq!(cursor.meta_context, Some("company_engineering".to_string()));
+        assert_eq!(cursor.default_project, Some("bashfx".to_string()));
+        assert_eq!(cursor.default_namespace, Some("config".to_string()));
     }
 
     #[test]
@@ -764,5 +812,134 @@ mod tests {
         // Verify cursor can still be retrieved
         let retrieved_cursor = cursor_manager.get_cursor("legacy", "alice").unwrap();
         assert_eq!(retrieved_cursor.database_path, PathBuf::from("/path/to/myapp.db"));
+    }
+
+    #[test]
+    fn test_set_cursor_with_meta_context() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        let db_path = PathBuf::from("/path/to/work.db");
+        cursor_manager.set_cursor_with_meta(
+            "work",
+            db_path.clone(),
+            "alice",
+            Some("company_engineering".to_string()),
+            Some("bashfx".to_string()),
+            Some("config".to_string()),
+        );
+        
+        let cursor = cursor_manager.get_cursor("work", "alice").unwrap();
+        assert_eq!(cursor.database_path, db_path);
+        assert_eq!(cursor.meta_context, Some("company_engineering".to_string()));
+        assert_eq!(cursor.default_project, Some("bashfx".to_string()));
+        assert_eq!(cursor.default_namespace, Some("config".to_string()));
+        assert_eq!(cursor.user, "alice");
+    }
+    
+    #[test]
+    fn test_set_cursor_with_meta_context_none() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        let db_path = PathBuf::from("/path/to/personal.db");
+        cursor_manager.set_cursor_with_meta(
+            "personal",
+            db_path.clone(),
+            "bob",
+            None, // No meta context
+            None,
+            None,
+        );
+        
+        let cursor = cursor_manager.get_cursor("personal", "bob").unwrap();
+        assert_eq!(cursor.database_path, db_path);
+        assert!(cursor.meta_context.is_none());
+        assert!(cursor.default_project.is_none());
+        assert!(cursor.default_namespace.is_none());
+        assert_eq!(cursor.user, "bob");
+    }
+
+    #[test]
+    fn test_meta_namespace_backward_compatibility() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        // Create an old cursor without meta context
+        cursor_manager.set_cursor("legacy", PathBuf::from("/legacy.db"), "alice");
+        
+        // Verify it can be read and has no meta context
+        let cursor = cursor_manager.get_cursor("legacy", "alice").unwrap();
+        assert!(cursor.meta_context.is_none());
+        assert_eq!(cursor.database_path, PathBuf::from("/legacy.db"));
+    }
+
+    #[test]
+    fn test_meta_namespace_json_serialization() {
+        let cursor_data = CursorData::new(PathBuf::from("/test.db"), "testuser".to_string())
+            .with_meta_context("company_engineering".to_string())
+            .with_project("bashfx".to_string());
+        
+        // Test serialization
+        let json = serde_json::to_string(&cursor_data).unwrap();
+        assert!(json.contains("meta_context"));
+        assert!(json.contains("company_engineering"));
+        
+        // Test deserialization
+        let deserialized: CursorData = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.meta_context, Some("company_engineering".to_string()));
+        assert_eq!(deserialized.default_project, Some("bashfx".to_string()));
+    }
+
+    #[test]
+    fn test_meta_namespace_cursor_listing() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        // Create cursors with and without meta context
+        cursor_manager.set_cursor_with_meta(
+            "work",
+            PathBuf::from("/work.db"),
+            "alice",
+            Some("company_engineering".to_string()),
+            Some("project1".to_string()),
+            Some("config".to_string()),
+        );
+        
+        cursor_manager.set_cursor("personal", PathBuf::from("/personal.db"), "alice");
+        
+        let cursors = cursor_manager.list_cursors("alice").unwrap();
+        assert_eq!(cursors.len(), 2);
+        
+        let work_cursor = &cursors["work"];
+        assert_eq!(work_cursor.meta_context, Some("company_engineering".to_string()));
+        
+        let personal_cursor = &cursors["personal"];
+        assert!(personal_cursor.meta_context.is_none());
+    }
+
+    #[test]
+    fn test_meta_namespace_cursor_deletion() {
+        let test_xdg = TestXdg::new().unwrap();
+        let cursor_manager = CursorManager::from_xdg(test_xdg.paths.clone());
+        
+        cursor_manager.set_cursor_with_meta(
+            "temp_meta",
+            PathBuf::from("/temp.db"),
+            "alice",
+            Some("test_org".to_string()),
+            None,
+            None,
+        );
+        
+        // Verify it exists
+        assert!(cursor_manager.get_cursor("temp_meta", "alice").is_ok());
+        
+        // Delete it
+        let deleted = cursor_manager.delete_cursor("temp_meta", "alice").unwrap();
+        assert!(deleted);
+        
+        // Verify it's gone
+        assert!(cursor_manager.get_cursor("temp_meta", "alice").is_err());
     }
 }

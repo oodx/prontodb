@@ -600,6 +600,9 @@ fn print_help() {
     println!("  cursor <database>                              Set global database cursor");
     println!("  cursor list                                    List all cursor cache entries");
     println!("  cursor clear                                   Clear cursor cache for user");
+    println!("  cursor set <name> <path> [--meta <context>]    Create persistent cursor with meta namespace");
+    println!("  cursor active                                  Show active cursor information");
+    println!("  cursor delete <name>                           Delete persistent cursor");
     println!();
     println!("Admin Commands:");
     println!("  admin <subcommand>                      Admin operations");
@@ -613,6 +616,9 @@ fn print_help() {
     println!("Addressing Formats:");
     println!("  project.namespace.key      Full path addressing");
     println!("  key__context              Context suffix (stored as context column)");
+    println!("  Meta namespace (when cursor has --meta context):");
+    println!("    User types: project.namespace.key (3-layer)");
+    println!("    System stores: meta.project.namespace.key (4-layer)");
     println!();
     println!("Stream Operations:");
     println!("  stream                     Process token stream from stdin (deferred)");

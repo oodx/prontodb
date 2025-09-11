@@ -2,7 +2,7 @@
 
 **Production-Ready Infrastructure Key-Value Store for Multi-Agent Workflows**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#testing)
 [![RSB](https://img.shields.io/badge/RSB-compliant-blue.svg)](https://github.com/oodx/rsb-framework)
@@ -32,6 +32,13 @@ The deployment script handles everything:
 
 ### Immediate Usage
 ```bash
+# Show beautiful ASCII logo and version
+prontodb version
+
+# Get comprehensive help
+prontodb help
+prontodb set help    # Detailed command help
+
 # Store configuration with dot addressing
 prontodb set myapp.config.environment "production"
 prontodb set myapp.secrets.api_key "secret123"
@@ -55,6 +62,7 @@ prontodb backup --output ./backups
 ### **Multi-Agent Infrastructure Ready**
 - **🎯 Multi-User Isolation**: Complete separation with `--user` flags
 - **🗂️ Multi-Database Cursors**: Context switching with `--cursor` for different environments
+- **🌐 Meta Namespace**: Enhanced cursors with transparent 4-layer addressing for organizational isolation
 - **🔄 Combined Operations**: `--user agent1 --cursor prod` for precise targeting
 - **⚡ Concurrent Safe**: Multiple agents operate simultaneously without conflicts
 
@@ -70,6 +78,8 @@ prontodb backup --output ./backups
 - **💾 Backup/Restore**: Full system state preservation
 - **🔧 Deploy Scripts**: Production-ready automation
 - **📊 UAT Testing**: Comprehensive acceptance validation
+- **🎨 ASCII Branding**: Beautiful logo display with version command
+- **📖 Layered Help**: Comprehensive help system with `prontodb <command> help` pattern
 
 ---
 
@@ -125,6 +135,15 @@ prontodb set sessions.cache.agent_456 "processing_task_xyz"
 
 ## 📊 **Complete Command Reference**
 
+### **Help & Information**
+```bash
+prontodb help                     # General help with feature overview
+prontodb version                  # Show ASCII logo, version, and license
+prontodb <command> help           # Detailed help for specific commands
+prontodb set help                 # Detailed set command help
+prontodb cursor help              # Detailed cursor management help
+```
+
 ### **Core Key-Value Operations**
 ```bash
 prontodb set <key> <value>        # Store value
@@ -136,10 +155,25 @@ prontodb scan [prefix]            # List key=value pairs with optional prefix
 
 ### **Multi-Database Cursor Management**
 ```bash
-prontodb cursor set <name> <path>   # Create/update cursor to database path
-prontodb cursor list                # List all cursors for current user
-prontodb cursor active              # Show active cursor
-prontodb cursor delete <name>       # Remove cursor
+prontodb cursor set <name> <path>                    # Create/update cursor to database path
+prontodb cursor set <name> <path> --meta <context>  # Create cursor with meta namespace
+prontodb cursor list                                 # List all cursors for current user
+prontodb cursor active                               # Show active cursor
+prontodb cursor delete <name>                        # Remove cursor
+```
+
+#### **Meta Namespace Feature**
+Enhanced cursors with transparent 4-layer addressing for organizational isolation:
+
+```bash
+# Create cursor with meta context for organizational isolation  
+prontodb cursor set work /path/to/work.db --meta "company_engineering"
+
+# User types familiar 3-layer addresses
+prontodb --cursor work set myapp.config.debug "true"
+
+# System transparently stores as 4-layer: company_engineering.myapp.config.debug
+# Provides complete isolation between different organizational contexts
 ```
 
 ### **Discovery & Navigation**
@@ -382,7 +416,7 @@ cargo build --release --features encryption-aes
 
 ## 📝 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 

@@ -437,31 +437,136 @@ fn print_backup_help() -> i32 {
 
 pub fn do_cursor(args: rsb::args::Args) -> i32 {
     use crate::cursor_cache::CursorCache;
+    use crate::cursor::CursorManager;
+    use std::path::PathBuf;
     
     let arg_list = args.all();
     
     // Note: --user is handled by the global flag system, so we only get positional args here
     if arg_list.is_empty() {
-        eprintln!("cursor: Missing subcommand or database name");
-        eprintln!("Usage: prontodb [--user <user>] cursor <database_name>");
-        eprintln!("   or: prontodb [--user <user>] cursor list");
-        eprintln!("   or: prontodb [--user <user>] cursor clear");
-        eprintln!("   or: prontodb [--user <user>] cursor delete <name>");
-        eprintln!("   or: prontodb [--user <user>] cursor reset [--user <user>|--all]");
+        eprintln!("cursor: Missing subcommand");
+        eprintln!("Usage:");
+        eprintln!("  prontodb [--user <user>] cursor <database_name>      # Set cache cursor");
+        eprintln!("  prontodb [--user <user>] cursor list                 # List cache cursors");
+        eprintln!("  prontodb [--user <user>] cursor clear                # Clear cache cursor");
+        eprintln!("  prontodb [--user <user>] cursor set <name> <path> [--meta <context>]  # Set persistent cursor");
+        eprintln!("  prontodb [--user <user>] cursor active               # Show active cursor");
+        eprintln!("  prontodb [--user <user>] cursor delete <name>        # Delete cursor");
         return 1;
     }
     
     let cache = CursorCache::new();
+    let cursor_manager = CursorManager::new();
     
     match arg_list[0].as_str() {
+        "set" => {
+            // Enhanced cursor management: prontodb cursor set <name> <path> [--meta <context>]
+            if arg_list.len() < 3 {
+                eprintln!("cursor set: Missing cursor name or database path");
+                eprintln!("Usage: prontodb [--user <user>] cursor set <name> <path> [--meta <context>]");
+                return 1;
+            }
+            
+            let cursor_name = &arg_list[1];
+            let db_path = PathBuf::from(&arg_list[2]);
+            
+            // Parse optional --meta flag
+            let mut meta_context = None;
+            let mut i = 3;
+            while i < arg_list.len() {
+                if arg_list[i] == "--meta" && i + 1 < arg_list.len() {
+                    meta_context = Some(arg_list[i + 1].clone());
+                    break;
+                }
+                i += 1;
+            }
+            
+            // Get user from global context (RSB handles this)
+            let user = "default"; // This will be overridden by global --user flag
+            
+            // Create enhanced cursor with meta context
+            cursor_manager.set_cursor_with_meta(
+                cursor_name,
+                db_path.clone(),
+                user,
+                meta_context.clone(),
+                None, // project defaults can be added later
+                None, // namespace defaults can be added later
+            );
+            
+            match meta_context {
+                Some(meta) => println!("Cursor '{}' set to '{}' with meta context '{}'", cursor_name, db_path.display(), meta),
+                None => println!("Cursor '{}' set to '{}'", cursor_name, db_path.display()),
+            }
+            0
+        }
+        
         "list" => {
-            let cursors = cache.list_all_cursors();
-            if cursors.is_empty() {
-                println!("No cursor cache found");
-            } else {
-                println!("Cached database selections:");
-                for (user_name, database) in cursors {
+            // Show both cache cursors and persistent cursors
+            let cache_cursors = cache.list_all_cursors();
+            
+            println!("Cursor Management:");
+            println!();
+            
+            if !cache_cursors.is_empty() {
+                println!("Cache Cursors (lightweight database selection):");
+                for (user_name, database) in &cache_cursors {
                     println!("  {}: {}", user_name, database);
+                }
+                println!();
+            }
+            
+            // List persistent cursors for current user
+            let user = "default"; // This will be overridden by global --user flag
+            match cursor_manager.list_cursors(user) {
+                Ok(cursors) => {
+                    if !cursors.is_empty() {
+                        println!("Persistent Cursors (enhanced with meta context):");
+                        for (name, cursor_data) in cursors {
+                            let meta_info = match &cursor_data.meta_context {
+                                Some(meta) => format!(" [meta: {}]", meta),
+                                None => String::new(),
+                            };
+                            println!("  {}: {}{}", name, cursor_data.database_path.display(), meta_info);
+                        }
+                    } else if cache_cursors.is_empty() {
+                        println!("No cursors found. Use 'cursor set' to create persistent cursors.");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("cursor list: Failed to list persistent cursors: {}", e);
+                    return 1;
+                }
+            }
+            0
+        }
+        
+        "active" => {
+            // Show active cursor information
+            let user = "default"; // This will be overridden by global --user flag
+            
+            // Check cache cursor first
+            let cache_user = if user == "default" { None } else { Some(user) };
+            match cache.get_cursor(cache_user) {
+                Some(database) => {
+                    println!("Active cache cursor: {} (for user '{}')", database, user);
+                }
+                None => {
+                    println!("No cache cursor set");
+                }
+            }
+            
+            // Show default persistent cursor if it exists
+            match cursor_manager.get_cursor("default", user) {
+                Ok(cursor_data) => {
+                    let meta_info = match &cursor_data.meta_context {
+                        Some(meta) => format!(" with meta context '{}'", meta),
+                        None => String::new(),
+                    };
+                    println!("Default persistent cursor: {}{}", cursor_data.database_path.display(), meta_info);
+                }
+                Err(_) => {
+                    println!("No default persistent cursor set");
                 }
             }
             0
@@ -574,37 +679,6 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
                 Err(e) => {
                     eprintln!("cursor reset: Failed to reset cursors: {}", e);
                     1
-                }
-            }
-        }
-        
-        "active" => {
-            // Display current active cursor  
-            // Parse --user flag from remaining args since RSB doesn't handle global flags here
-            let mut user: Option<String> = None;
-            let mut i = 1;
-            while i < arg_list.len() {
-                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
-                    user = Some(arg_list[i + 1].clone());
-                    break;
-                }
-                i += 1;
-            }
-            
-            let cache_user = match user.as_deref() {
-                Some(u) if u != "default" => Some(u),
-                _ => None,
-            };
-            
-            let user_display = user.as_deref().unwrap_or("default");
-            match cache.get_cursor(cache_user) {
-                Some(database) => {
-                    println!("Current cursor: {} (for user '{}')", database, user_display);
-                    0
-                }
-                None => {
-                    println!("No active cursor set (using default database)");
-                    0
                 }
             }
         }

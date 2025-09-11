@@ -1,11 +1,115 @@
 #![allow(dead_code)]  // Functions are exported for library use
 
 use crate::addressing::{Address, AddressContext};
-use crate::cursor::CursorManager;
+use crate::cursor::{CursorManager, CursorData};
 use crate::storage::Storage;
 use crate::xdg::XdgPaths;
 
 // Centralized helpers for CLI handlers and future RSB adapters
+
+// Meta namespace key transformation utilities
+fn transform_address_for_storage(user_addr: &Address, meta_context: &Option<String>) -> Address {
+    match meta_context {
+        Some(meta) => Address {
+            project: format!("{}.{}", meta, user_addr.project),
+            namespace: user_addr.namespace.clone(),
+            key: user_addr.key.clone(),
+            context: user_addr.context.clone(),
+        },
+        None => user_addr.clone(),
+    }
+}
+
+fn transform_address_for_display(storage_addr: &Address, meta_context: &Option<String>) -> Address {
+    match meta_context {
+        Some(meta) => {
+            let prefix = format!("{}.", meta);
+            let user_project = storage_addr.project.strip_prefix(&prefix)
+                .unwrap_or(&storage_addr.project)
+                .to_string();
+            Address {
+                project: user_project,
+                namespace: storage_addr.namespace.clone(),
+                key: storage_addr.key.clone(),
+                context: storage_addr.context.clone(),
+            }
+        }
+        None => storage_addr.clone(),
+    }
+}
+
+// Enhanced storage opening that returns cursor context for key transformation
+fn open_storage_with_cursor_context(
+    cursor_name: Option<&str>, 
+    user: &str
+) -> Result<(Storage, Option<CursorData>), String> {
+    open_storage_with_cursor_context_and_database(cursor_name, user, "main")
+}
+
+// Enhanced storage opening with explicit CursorManager for dependency injection
+fn open_storage_with_cursor_context_and_database_with_manager(
+    cursor_name: Option<&str>, 
+    user: &str, 
+    db_name: &str,
+    cursor_manager: &CursorManager
+) -> Result<(Storage, Option<CursorData>), String> {
+    let paths = XdgPaths::new();
+    paths.ensure_dirs().map_err(|e| e.to_string())?;
+    
+    let (db_path, cursor_data) = if let Some(cursor) = cursor_name {
+        cursor_manager.ensure_default_cursor(user).map_err(|e| e.to_string())?;
+        
+        match cursor_manager.get_cursor(cursor, user) {
+            Ok(cursor_data) => (cursor_data.database_path.clone(), Some(cursor_data)),
+            Err(_) => {
+                // Cursor not found, fall back to database-scoped path
+                (paths.get_db_path_with_name(db_name), None)
+            }
+        }
+    } else {
+        // No cursor specified, use database-scoped path directly
+        (paths.get_db_path_with_name(db_name), None)
+    };
+    
+    // Ensure database-specific directory exists
+    let db_dir = db_path.parent().unwrap();
+    std::fs::create_dir_all(db_dir).map_err(|e| e.to_string())?;
+    
+    let storage = Storage::open(&db_path).map_err(|e| e.to_string())?;
+    Ok((storage, cursor_data))
+}
+
+fn open_storage_with_cursor_context_and_database(
+    cursor_name: Option<&str>, 
+    user: &str, 
+    db_name: &str
+) -> Result<(Storage, Option<CursorData>), String> {
+    let paths = XdgPaths::new();
+    paths.ensure_dirs().map_err(|e| e.to_string())?;
+    
+    let (db_path, cursor_data) = if let Some(cursor) = cursor_name {
+        let cursor_manager = CursorManager::new();
+        cursor_manager.ensure_default_cursor(user).map_err(|e| e.to_string())?;
+        
+        match cursor_manager.get_cursor(cursor, user) {
+            Ok(cursor_data) => (cursor_data.database_path.clone(), Some(cursor_data)),
+            Err(_) => {
+                // Cursor not found, fall back to database-scoped path
+                (paths.get_db_path_with_name(db_name), None)
+            }
+        }
+    } else {
+        // No cursor specified, use database-scoped path directly
+        (paths.get_db_path_with_name(db_name), None)
+    };
+    
+    // Ensure database-specific directory exists
+    let db_dir = db_path.parent().unwrap();
+    std::fs::create_dir_all(db_dir).map_err(|e| e.to_string())?;
+    
+    let storage = Storage::open(&db_path).map_err(|e| e.to_string())?;
+    Ok((storage, cursor_data))
+}
 
 fn open_storage() -> Result<Storage, String> {
     open_storage_with_database("main")
@@ -251,12 +355,18 @@ pub struct SetValueConfig<'a> {
 }
 
 pub fn set_value_with_cursor(config: SetValueConfig) -> Result<(), String> {
-    let storage = open_storage_with_cursor_and_database(config.cursor_name, config.user, config.database)?;
-    let addr = parse_address_from_parts(config.project, config.namespace, config.key_or_path, config.ns_delim, AddressContext::KeyAccess)?;
-    addr.validate_key(config.ns_delim)?;
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(config.cursor_name, config.user, config.database)?;
+    
+    // Parse user's input key (3-layer format)
+    let user_addr = parse_address_from_parts(config.project, config.namespace, config.key_or_path, config.ns_delim, AddressContext::KeyAccess)?;
+    user_addr.validate_key(config.ns_delim)?;
+    
+    // Apply meta context transformation for storage (enhanced project addressing)
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
 
     let ns_default_ttl = storage
-        .get_namespace_ttl(&addr.project, &addr.namespace)
+        .get_namespace_ttl(&storage_addr.project, &storage_addr.namespace)
         .map_err(|e| e.to_string())?;
     let effective_ttl = match (ns_default_ttl, config.ttl_flag) {
         (Some(_), Some(ttl)) => Some(ttl),
@@ -266,7 +376,42 @@ pub fn set_value_with_cursor(config: SetValueConfig) -> Result<(), String> {
     };
 
     storage
-        .set(&addr, config.value, effective_ttl)
+        .set(&storage_addr, config.value, effective_ttl)
+        .map_err(|e| e.to_string())
+}
+
+// Enhanced version with explicit CursorManager for testing and dependency injection
+pub fn set_value_with_cursor_and_manager(
+    config: SetValueConfig, 
+    cursor_manager: &CursorManager
+) -> Result<(), String> {
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database_with_manager(
+        config.cursor_name, 
+        config.user, 
+        config.database, 
+        cursor_manager
+    )?;
+    
+    // Parse user's input key (3-layer format)
+    let user_addr = parse_address_from_parts(config.project, config.namespace, config.key_or_path, config.ns_delim, AddressContext::KeyAccess)?;
+    user_addr.validate_key(config.ns_delim)?;
+    
+    // Apply meta context transformation for storage (enhanced project addressing)
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
+
+    let ns_default_ttl = storage
+        .get_namespace_ttl(&storage_addr.project, &storage_addr.namespace)
+        .map_err(|e| e.to_string())?;
+    let effective_ttl = match (ns_default_ttl, config.ttl_flag) {
+        (Some(_), Some(ttl)) => Some(ttl),
+        (Some(default), None) => Some(default),
+        (None, Some(_)) => return Err("TTL not allowed: namespace is not TTL-enabled".into()),
+        (None, None) => None,
+    };
+
+    storage
+        .set(&storage_addr, config.value, effective_ttl)
         .map_err(|e| e.to_string())
 }
 
@@ -290,9 +435,22 @@ pub fn get_value_with_cursor_and_database(
     user: &str,
     db_name: &str,
 ) -> Result<Option<String>, String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
-    storage.get(&addr).map_err(|e| e.to_string())
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
+    
+    // Parse user's input key (3-layer format)
+    let user_addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
+    
+    // Apply meta context transformation
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(_) = &meta_context {
+        // When using meta context, ONLY look for meta-prefixed key to maintain isolation
+        let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
+        storage.get(&storage_addr).map_err(|e| e.to_string())
+    } else {
+        // No meta context, use direct lookup
+        storage.get(&user_addr).map_err(|e| e.to_string())
+    }
 }
 
 pub fn delete_value_with_cursor(
@@ -315,9 +473,22 @@ pub fn delete_value_with_cursor_and_database(
     user: &str,
     db_name: &str,
 ) -> Result<(), String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
-    storage.delete(&addr).map_err(|e| e.to_string())
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
+    
+    // Parse user's input key (3-layer format)
+    let user_addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
+    
+    // Apply meta context transformation
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(_) = &meta_context {
+        // When using meta context, ONLY delete meta-prefixed key to maintain isolation
+        let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
+        storage.delete(&storage_addr).map_err(|e| e.to_string())
+    } else {
+        // No meta context, use direct deletion
+        storage.delete(&user_addr).map_err(|e| e.to_string())
+    }
 }
 
 pub fn list_keys_with_cursor(
@@ -338,10 +509,21 @@ pub fn list_keys_with_cursor_and_database(
     user: &str,
     db_name: &str,
 ) -> Result<Vec<String>, String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    storage
-        .list_keys(project, namespace, prefix)
-        .map_err(|e| e.to_string())
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
+    
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(meta) = &meta_context {
+        // List from meta-prefixed project
+        let meta_project = format!("{}.{}", meta, project);
+        let keys = storage.list_keys(&meta_project, namespace, prefix).map_err(|e| e.to_string())?;
+        
+        // Keys are already in the right format (just the key part), no transformation needed
+        Ok(keys)
+    } else {
+        // No meta context, use direct listing
+        storage.list_keys(project, namespace, prefix).map_err(|e| e.to_string())
+    }
 }
 
 pub fn scan_pairs_with_cursor(
@@ -362,10 +544,21 @@ pub fn scan_pairs_with_cursor_and_database(
     user: &str,
     db_name: &str,
 ) -> Result<Vec<(String, String)>, String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
-    storage
-        .scan(project, namespace, prefix)
-        .map_err(|e| e.to_string())
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
+    
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(meta) = &meta_context {
+        // Scan from meta-prefixed project
+        let meta_project = format!("{}.{}", meta, project);
+        let pairs = storage.scan(&meta_project, namespace, prefix).map_err(|e| e.to_string())?;
+        
+        // Pairs are already in the right format (key, value), no transformation needed
+        Ok(pairs)
+    } else {
+        // No meta context, use direct scanning
+        storage.scan(project, namespace, prefix).map_err(|e| e.to_string())
+    }
 }
 
 // Flexible addressing versions that support both flags and dot notation
@@ -481,6 +674,114 @@ pub fn namespaces_with_cursor_and_database(
     let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
     storage
         .list_namespaces(project)
+        .map_err(|e| e.to_string())
+}
+
+// Enhanced API functions with explicit CursorManager for Krex's fix
+pub fn get_value_with_cursor_and_manager(
+    project: Option<&str>,
+    namespace: Option<&str>,
+    key_or_path: &str,
+    ns_delim: &str,
+    cursor_name: Option<&str>,
+    user: &str,
+    db_name: &str,
+    cursor_manager: &CursorManager,
+) -> Result<Option<String>, String> {
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database_with_manager(cursor_name, user, db_name, cursor_manager)?;
+    
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
+    
+    if let Some(cursor) = cursor_data {
+        if let Some(meta_context) = &cursor.meta_context {
+            // Try meta-prefixed key first
+            let meta_addr = transform_address_for_storage(&addr, &Some(meta_context.clone()));
+            if let Ok(Some(value)) = storage.get(&meta_addr) {
+                return Ok(Some(value));
+            }
+            
+            // Fallback to direct key for compatibility
+            return storage.get(&addr).map_err(|e| e.to_string());
+        }
+    }
+    
+    storage.get(&addr).map_err(|e| e.to_string())
+}
+
+pub fn delete_value_with_cursor_and_manager(
+    project: Option<&str>,
+    namespace: Option<&str>,
+    key_or_path: &str,
+    ns_delim: &str,
+    cursor_name: Option<&str>,
+    user: &str,
+    db_name: &str,
+    cursor_manager: &CursorManager,
+) -> Result<(), String> {
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database_with_manager(cursor_name, user, db_name, cursor_manager)?;
+    
+    let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
+    
+    if let Some(cursor) = cursor_data {
+        if let Some(meta_context) = &cursor.meta_context {
+            // Delete meta-prefixed key
+            let meta_addr = transform_address_for_storage(&addr, &Some(meta_context.clone()));
+            return storage.delete(&meta_addr).map_err(|e| e.to_string());
+        }
+    }
+    
+    storage.delete(&addr).map_err(|e| e.to_string())
+}
+
+pub fn list_keys_with_cursor_and_manager(
+    project: &str,
+    namespace: &str,
+    prefix: Option<&str>,
+    cursor_name: Option<&str>,
+    user: &str,
+    db_name: &str,
+    cursor_manager: &CursorManager,
+) -> Result<Vec<String>, String> {
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database_with_manager(cursor_name, user, db_name, cursor_manager)?;
+    
+    if let Some(cursor) = cursor_data {
+        if let Some(meta_context) = &cursor.meta_context {
+            // List keys with meta-prefixed project
+            let meta_project = format!("{}.{}", meta_context, project);
+            return storage
+                .list_keys(&meta_project, namespace, prefix)
+                .map_err(|e| e.to_string());
+        }
+    }
+    
+    storage
+        .list_keys(project, namespace, prefix)
+        .map_err(|e| e.to_string())
+}
+
+pub fn scan_pairs_with_cursor_and_manager(
+    project: &str,
+    namespace: &str,
+    prefix: Option<&str>,
+    cursor_name: Option<&str>,
+    user: &str,
+    db_name: &str,
+    cursor_manager: &CursorManager,
+) -> Result<Vec<(String, String)>, String> {
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database_with_manager(cursor_name, user, db_name, cursor_manager)?;
+    
+    if let Some(cursor) = cursor_data {
+        if let Some(meta_context) = &cursor.meta_context {
+            // Scan pairs with meta-prefixed project
+            let meta_project = format!("{}.{}", meta_context, project);
+            return storage
+                .scan(&meta_project, namespace, prefix)
+                .map_err(|e| e.to_string());
+        }
+    }
+    
+    storage
+        .scan(project, namespace, prefix)
         .map_err(|e| e.to_string())
 }
 
