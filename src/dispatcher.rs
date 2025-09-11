@@ -819,18 +819,121 @@ fn handle_cursor(ctx: CommandContext) -> i32 {
 }
 
 fn handle_admin(ctx: CommandContext) -> i32 {
-    // TODO: Admin subcommands
     if ctx.args.is_empty() {
         eprintln!("Admin requires subcommand");
+        eprintln!("Available: create-cache, nuclear-clean");
         return EXIT_ERROR;
     }
     
     match ctx.args[0].as_str() {
         "create-cache" => handle_create_cache(ctx),
+        "nuclear-clean" => handle_nuclear_clean(ctx),
         _ => {
             eprintln!("Unknown admin subcommand: {}", ctx.args[0]);
+            eprintln!("Available: create-cache, nuclear-clean");
             EXIT_ERROR
         }
+    }
+}
+
+fn handle_nuclear_clean(ctx: CommandContext) -> i32 {
+    // Safety check - require explicit confirmation flag (check both args and flags)
+    let has_confirmation = ctx.args.contains(&"--i-am-sure".to_string()) || 
+                          ctx.flags.contains_key("i-am-sure") ||
+                          ctx.flags.get("i-am-sure") == Some(&"true".to_string());
+    
+    if !has_confirmation {
+        eprintln!("nuclear-clean: DESTRUCTIVE OPERATION REQUIRES CONFIRMATION");
+        eprintln!("");
+        eprintln!("This command will completely remove ALL ProntoDB data including:");
+        eprintln!("  • All databases and their contents");
+        eprintln!("  • All cursor configurations");  
+        eprintln!("  • All cache files and temporary data");
+        eprintln!("  • All user-specific settings");
+        eprintln!("  • Complete XDG directory structure");
+        eprintln!("");
+        eprintln!("This action is IRREVERSIBLE and will destroy all data!");
+        eprintln!("");
+        eprintln!("To proceed, use: prontodb admin nuclear-clean --i-am-sure");
+        return EXIT_ERROR;
+    }
+    
+    use crate::xdg::XdgPaths;
+    use std::fs;
+    
+    println!("🚨 NUCLEAR CLEAN: Removing all ProntoDB data...");
+    
+    let xdg = XdgPaths::new();
+    let mut errors = Vec::new();
+    let mut removed_count = 0;
+    
+    // Remove main data directory and all contents
+    if xdg.data_dir.exists() {
+        match fs::remove_dir_all(&xdg.data_dir) {
+            Ok(()) => {
+                println!("✅ Removed data directory: {:?}", xdg.data_dir);
+                removed_count += 1;
+            }
+            Err(e) => {
+                errors.push(format!("Failed to remove {:?}: {}", xdg.data_dir, e));
+            }
+        }
+    } else {
+        println!("ℹ️  Data directory not found: {:?}", xdg.data_dir);
+    }
+    
+    // Remove cache directory if separate
+    let cache_dir = xdg.data_dir.join("cache");
+    if cache_dir.exists() && cache_dir != xdg.data_dir {
+        match fs::remove_dir_all(&cache_dir) {
+            Ok(()) => {
+                println!("✅ Removed cache directory: {:?}", cache_dir);
+                removed_count += 1;
+            }
+            Err(e) => {
+                errors.push(format!("Failed to remove cache {:?}: {}", cache_dir, e));
+            }
+        }
+    }
+    
+    // Remove any stray database files in current directory
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    if let Ok(entries) = fs::read_dir(&current_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.ends_with(".db") {
+                    match fs::remove_file(&path) {
+                        Ok(()) => {
+                            println!("✅ Removed database file: {:?}", path);
+                            removed_count += 1;
+                        }
+                        Err(e) => {
+                            errors.push(format!("Failed to remove {:?}: {}", path, e));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Summary
+    if errors.is_empty() {
+        println!("");
+        println!("🎯 NUCLEAR CLEAN COMPLETE");
+        println!("   {} items removed", removed_count);
+        println!("   All ProntoDB data has been completely destroyed");
+        println!("   System is now in clean slate state");
+        0
+    } else {
+        println!("");
+        println!("⚠️  NUCLEAR CLEAN COMPLETED WITH ERRORS");
+        println!("   {} items removed successfully", removed_count);
+        for error in errors {
+            eprintln!("   ❌ {}", error);
+        }
+        println!("   Some data may remain due to permission or access issues");
+        EXIT_ERROR
     }
 }
 

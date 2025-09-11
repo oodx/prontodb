@@ -463,9 +463,14 @@ fn print_admin_help() -> i32 {
     println!();
     println!("SUBCOMMANDS:");
     println!("  create-cache              Create TTL-enabled namespace");
+    println!("  nuclear-clean             Complete removal of ALL ProntoDB data");
     println!();
     println!("EXAMPLES:");
     println!("  prontodb admin create-cache sessions.cache 3600");
+    println!();
+    println!("DESTRUCTIVE OPERATIONS:");
+    println!("  # DANGER: Complete data destruction (requires --i-am-sure flag)");
+    println!("  prontodb admin nuclear-clean --i-am-sure");
     println!();
     println!("Admin commands require appropriate permissions and should be");
     println!("used carefully in production environments.");
