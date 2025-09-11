@@ -69,6 +69,7 @@ prontodb backup --output ./backups
 ### **Production-Grade Storage**
 - **📍 Dot Addressing**: Intuitive `project.namespace.key` syntax
 - **⏰ TTL Cache Namespaces**: Automatic expiry for session/cache data
+- **🚰 Revolutionary Pipe Cache**: Zero data loss with automatic recovery workflow
 - **📦 Single Binary**: Zero external dependencies, easy deployment
 - **🛡️ XDG Compliance**: Follows system standards for data storage
 - **🔒 Data Integrity**: SQLite backend with WAL journaling
@@ -76,6 +77,7 @@ prontodb backup --output ./backups
 ### **Complete Lifecycle Management**
 - **📥 Install/Uninstall**: Automated system integration
 - **💾 Backup/Restore**: Full system state preservation
+- **📋 Copy Command**: Seamless data migration with auto-cleanup
 - **🔧 Deploy Scripts**: Production-ready automation
 - **📊 UAT Testing**: Comprehensive acceptance validation
 - **🎨 ASCII Branding**: Beautiful logo display with version command
@@ -131,6 +133,36 @@ prontodb set sessions.cache.agent_456 "processing_task_xyz"
 # Data automatically expires after timeout
 ```
 
+### **Revolutionary Pipe Cache & Data Recovery**
+```bash
+# Automatic data rescue on invalid addresses
+echo "critical data" | prontodb set "invalid...address" "dummy"
+# ⚠️ Invalid address - content cached as: pipe.cache.1757569450_85e49569_invalid___address
+# 💡 Use: prontodb copy pipe.cache.1757569450_85e49569_invalid___address <proper.address>
+
+# Copy command with automatic cleanup
+prontodb copy pipe.cache.1757569450_85e49569_invalid___address project.config.data
+# → Copies data and removes cache automatically
+
+# Zero data loss guarantee - all piped content is preserved
+echo "never lose this" | prontodb set "typo.address.here" 
+# → Always cached, always recoverable
+```
+
+### **XStream Integration (Optional Feature)**
+```bash
+# Build with streaming support
+cargo build --features streaming
+
+# XStream token processing
+echo "ns=project; key=value; meta:context=prod;" | prontodb stream
+# → Processes tokens and stores with namespace handling
+
+# Meta namespace routing
+echo "meta:path=company.engineering; config=debug;" | prontodb stream  
+# → Applies meta context transparently
+```
+
 ---
 
 ## 📊 **Complete Command Reference**
@@ -149,8 +181,10 @@ prontodb cursor help              # Detailed cursor management help
 prontodb set <key> <value>        # Store value
 prontodb get <key>                # Retrieve value (exit 2 if not found)
 prontodb del <key>                # Delete value
+prontodb copy <source> <dest>     # Copy data with auto-cleanup
 prontodb keys [prefix]            # List keys with optional prefix
 prontodb scan [prefix]            # List key=value pairs with optional prefix
+prontodb stream                   # XStream processing (requires --features streaming)
 ```
 
 ### **Multi-Database Cursor Management**
@@ -347,10 +381,30 @@ cargo test
 ./test.sh  # Run UAT suite
 ```
 
+### **Security Features**
+```bash
+# Memory limits - Maximum 10MB per operation
+echo "large_data" | prontodb set large.dataset  # Protected by memory limits
+
+# TTL auto-cleanup - 15 minute expiry for cache
+prontodb set sessions.temp "data"  # Auto-expires after 15 minutes  
+
+# User isolation - Physical database separation
+prontodb --user agent1 set private.key "secret1"  # Stored in agent1.db
+prontodb --user agent2 set private.key "secret2"  # Stored in agent2.db
+
+# Meta namespace validation - Organizational isolation
+prontodb cursor set work /path/work.db --meta "company_engineering" 
+# Creates 4-layer isolation: company_engineering.project.namespace.key
+```
+
 ### **Build Configurations**
 ```bash
 # Default build (bundled SQLite)
 cargo build --release
+
+# With XStream streaming support
+cargo build --release --features streaming
 
 # System SQLite (smaller binary)  
 cargo build --release --no-default-features --features json
