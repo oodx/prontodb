@@ -8,14 +8,17 @@ repository = "https://github.com/oodx/prontodb"
 
 [dependencies]
 anyhow = "1"
+atty = "0.2"                                       # TTY detection for pipe input
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 directories = "6"
+md5 = "0.7"                                        # Content hashing for cache keys
 rusqlite = { version = "0.37" }                    # default: link to system SQLite
 rsb = { path = "../rsb" }  # Use local version with XDG fixes
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 tempfile = "3"
+xstream = { path = "../xstream", optional = true } # XStream integration
 
 
 
@@ -33,6 +36,7 @@ predicates = "3.0"
 [features]
 default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds
 json = ["dep:serde", "dep:serde_json"]
+streaming = ["dep:xstream"]                        # XStream integration for advanced streaming
 
 # Use system SQLite by default. If you want portability, build with:
 #   cargo build --features sqlite-bundled

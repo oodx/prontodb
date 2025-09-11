@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use crate::api::{self, SetValueConfig};
+use crate::pipe_cache;
 use crate::validation;
 
 use crate::cursor_cache::CursorCache;
@@ -237,8 +238,37 @@ fn handle_set(ctx: CommandContext) -> i32 {
         database: &ctx.database,
     };
     if let Err(e) = api::set_value_with_cursor(config) {
-        eprintln!("{}", e);
-        return EXIT_ERROR;
+        // Try pipe cache recovery on error
+        if let Some((cache_key, content)) = pipe_cache::detect_and_prepare_pipe_cache(key_or_path) {
+            // Store the cached content using the API
+            let cache_config = SetValueConfig {
+                project: None,
+                namespace: None,
+                key_or_path: &cache_key,
+                value: &content,
+                ns_delim: ".",
+                ttl_flag: Some(pipe_cache::DEFAULT_PIPE_CACHE_TTL),
+                cursor_name: ctx.cursor.as_deref(),
+                user: &ctx.user,
+                database: &ctx.database,
+            };
+            
+            match api::set_value_with_cursor(cache_config) {
+                Ok(()) => {
+                    // Pipe cache succeeded, return success (user already got feedback)
+                    return EXIT_OK;
+                }
+                Err(cache_err) => {
+                    eprintln!("Warning: Failed to cache piped content: {}", cache_err);
+                    eprintln!("Original error: {}", e);
+                    return EXIT_ERROR;
+                }
+            }
+        } else {
+            // No piped input, show original error
+            eprintln!("{}", e);
+            return EXIT_ERROR;
+        }
     }
     EXIT_OK
 }
