@@ -262,14 +262,26 @@ fn handle_set(ctx: CommandContext) -> i32 {
             let (cache_key, cached_content, education) = 
                 pipe_cache::prepare_pipe_cache_with_education(content, key_or_path);
             
-            // Store the cached content
+            // Ensure pipe.cache namespace exists with TTL enabled
+            if let Err(_) = api::create_ttl_namespace_with_cursor_and_database(
+                "pipe", 
+                "cache", 
+                pipe_cache::DEFAULT_PIPE_CACHE_TTL,
+                ctx.cursor.as_deref(),
+                &ctx.user,
+                &ctx.database
+            ) {
+                // Namespace might already exist - that's okay
+            }
+            
+            // Store with proper namespace structure to enable TTL functionality
             let cache_config = SetValueConfig {
-                project: None,
-                namespace: None,
-                key_or_path: &cache_key,
+                project: Some("pipe"),
+                namespace: Some("cache"),
+                key_or_path: &cache_key,  // Keep the full cache key for now - will optimize this
                 value: &cached_content,
                 ns_delim: ".",
-                ttl_flag: Some(pipe_cache::DEFAULT_PIPE_CACHE_TTL),
+                ttl_flag: Some(pipe_cache::DEFAULT_PIPE_CACHE_TTL),  // TTL now works with proper namespace
                 cursor_name: ctx.cursor.as_deref(),
                 user: &ctx.user,
                 database: &ctx.database,

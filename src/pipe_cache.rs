@@ -12,20 +12,16 @@ const MAX_PIPE_SIZE: usize = 10 * 1024 * 1024;
 pub const DEFAULT_PIPE_CACHE_TTL: u64 = 900;
 
 /// Generate unique cache key from content and invalid address
-pub fn generate_cache_key(content: &str, invalid_address: &str) -> String {
+pub fn generate_cache_key(content: &str, _invalid_address: &str) -> String {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
     
     let content_hash = format!("{:x}", md5::compute(content));
-    let safe_address = invalid_address
-        .replace(".", "_")
-        .replace("/", "_")
-        .replace(":", "_")
-        .replace(" ", "_");
     
-    format!("pipe.cache.{}_{}_{}", timestamp, &content_hash[..8], safe_address)
+    // Clean key format: just timestamp and hash (pipe.cache namespace already indicates cached content)
+    format!("pipe.cache.{}_{}", timestamp, &content_hash[..8])
 }
 
 /// Detect if stdin has piped content
