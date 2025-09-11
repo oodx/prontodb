@@ -94,13 +94,40 @@ pub fn is_pipe_cache_key(key: &str) -> bool {
 }
 
 /// Suggest XStream format for cached content (progressive education)
-#[allow(dead_code)]
 pub fn suggest_xstream_format(cache_key: &str, target_address: &str) -> String {
     format!(
         "💡 XStream format: echo \"ns={}; key=$(cat {});\" | prontodb stream", 
         target_address.split('.').next().unwrap_or("project"),
         cache_key
     )
+}
+
+/// Detect if cached content looks like XStream tokens
+pub fn detect_xstream_in_cache(content: &str) -> bool {
+    // Simple heuristic: contains semicolons and equals signs typical of XStream
+    let has_structure = content.contains(';') && content.contains('=');
+    let has_namespace = content.contains("ns=") || content.contains("meta:") || content.contains("sec:");
+    has_structure && (has_namespace || content.matches('=').count() >= 2)
+}
+
+/// Enhanced pipe cache preparation with XStream education
+pub fn prepare_pipe_cache_with_education(
+    content: &str,
+    invalid_address: &str,
+) -> (String, String, Option<String>) {
+    let (cache_key, cached_content) = prepare_pipe_cache(content, invalid_address);
+    
+    // Check if content might be XStream format
+    let education_suggestion = if detect_xstream_in_cache(content) {
+        Some(format!(
+            "🎓 Detected structured data! Try XStream format:\n   echo \"{}\" | prontodb stream",
+            content.trim()
+        ))
+    } else {
+        None
+    };
+    
+    (cache_key, cached_content, education_suggestion)
 }
 
 #[cfg(test)]

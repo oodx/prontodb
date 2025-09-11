@@ -110,6 +110,7 @@ fn process_token_bucket(bucket: xstream::TokenBucket) -> Result<(), String> {
 }
 
 /// Parse stream command with optional format argument
+#[allow(dead_code)]
 pub fn parse_stream_args(args: &[String]) -> Result<StreamFormat, String> {
     if args.is_empty() {
         return Ok(StreamFormat::Auto);
@@ -132,6 +133,7 @@ pub enum StreamFormat {
 }
 
 /// Detect if input looks like XStream format
+#[allow(dead_code)]
 pub fn detect_xstream_format(content: &str) -> bool {
     // Simple heuristic: contains semicolons and equals signs
     content.contains(';') && content.contains('=') && 
@@ -139,6 +141,7 @@ pub fn detect_xstream_format(content: &str) -> bool {
 }
 
 /// Provide helpful format suggestion when streaming fails
+#[allow(dead_code)]
 pub fn suggest_stream_format(error_context: &str) -> String {
     format!(
         r#"Stream format not recognized. Try:

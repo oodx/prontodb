@@ -257,9 +257,10 @@ fn handle_set(ctx: CommandContext) -> i32 {
         database: &ctx.database,
     };
     if let Err(e) = api::set_value_with_cursor(config) {
-        // If we have piped content and the address is invalid, create pipe cache entry
+        // If we have piped content and the address is invalid, create pipe cache entry with education
         if let Some(ref content) = piped_content {
-            let (cache_key, cached_content) = pipe_cache::prepare_pipe_cache(content, key_or_path);
+            let (cache_key, cached_content, education) = 
+                pipe_cache::prepare_pipe_cache_with_education(content, key_or_path);
             
             // Store the cached content
             let cache_config = SetValueConfig {
@@ -276,9 +277,14 @@ fn handle_set(ctx: CommandContext) -> i32 {
             
             match api::set_value_with_cursor(cache_config) {
                 Ok(()) => {
-                    // Provide user feedback
+                    // Provide user feedback with progressive education
                     eprintln!("⚠️  Invalid address '{}' - content cached as: {}", key_or_path, cache_key);
                     eprintln!("💡 Use: prontodb copy {} <proper.address>", cache_key);
+                    
+                    // Provide XStream education if applicable
+                    if let Some(suggestion) = education {
+                        eprintln!("{}", suggestion);
+                    }
                     return EXIT_OK;
                 }
                 Err(cache_err) => {
