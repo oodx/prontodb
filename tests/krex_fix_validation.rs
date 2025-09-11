@@ -44,6 +44,7 @@ fn test_krex_fix_cursor_integration() {
         cursor_name: Some("testcursor"),
         user: "alice",
         database: "test",
+        meta_context_override: None, // Use cursor's stored meta context
     };
     
     println!("--- TESTING STORAGE WITH KREX'S FIX ---");

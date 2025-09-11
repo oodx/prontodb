@@ -34,9 +34,10 @@ assert_cmd = "2.0"
 predicates = "3.0"
 
 [features]
-default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds
+default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds  
 json = ["dep:serde", "dep:serde_json"]
 streaming = ["dep:xstream"]                        # XStream integration for advanced streaming
+pipe-cache = []                                    # Revolutionary pipe cache with zero data loss
 
 # Use system SQLite by default. If you want portability, build with:
 #   cargo build --features sqlite-bundled

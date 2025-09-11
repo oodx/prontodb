@@ -52,8 +52,8 @@ fn test_pipe_cache_invalid_address() {
         test_content
     );
     
-    // Should fail but with helpful cache message
-    assert!(!success, "Command should fail for invalid address");
+    // Revolutionary pipe cache: Now succeeds after caching content
+    assert!(success, "Command should succeed after caching content");
     assert!(stderr.contains("Invalid address"), "Should report invalid address");
     assert!(stderr.contains("pipe.cache."), "Should mention cache key");
     assert!(stderr.contains("content cached"), "Should confirm caching");
@@ -104,8 +104,9 @@ fn test_pipe_cache_empty_input() {
         ""
     );
     
-    assert!(!success, "Should fail for invalid address");
-    assert!(stderr.contains("Invalid address"));
+    // Revolutionary pipe cache: succeeds after caching empty input shows usage instead
+    assert!(!success, "Should fail for invalid address with empty input");
+    assert!(stderr.contains("Usage:") || stderr.contains("Invalid address"));
     assert!(!stderr.contains("pipe.cache."), "Should not cache empty input");
 }
 

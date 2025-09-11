@@ -183,6 +183,10 @@ pub fn do_help(args: rsb::args::Args) -> i32 {
             "scan" => return print_scan_help(),
             "admin" => return print_admin_help(),
             "backup" => return print_backup_help(),
+            #[cfg(feature = "pipe-cache")]
+            "copy" => return print_copy_help(),
+            #[cfg(feature = "streaming")]
+            "stream" => return print_stream_help(),
             _ => {} // Fall through to general help
         }
     }
@@ -264,8 +268,52 @@ pub fn do_help(args: rsb::args::Args) -> i32 {
     println!("  prontodb namespaces -p myapp");
     println!("  prontodb keys myapp.config");
     println!();
+
+    // Conditional help sections for advanced features
+    #[cfg(feature = "pipe-cache")]
+    print_pipe_cache_help();
+    
+    #[cfg(feature = "streaming")]
+    print_xstream_help();
+    
     println!("For more examples and documentation, see README.md");
     0
+}
+
+#[cfg(feature = "pipe-cache")]
+fn print_pipe_cache_help() {
+    println!("PIPE CACHE & DATA RECOVERY:");
+    println!("  # Revolutionary zero data loss - pipe content is auto-cached on invalid addresses");
+    println!("  echo 'important data' | prontodb set invalid.address");
+    println!("  # → ⚠️  Invalid address - content cached as: pipe.cache.timestamp_hash");
+    println!("  # → 💡 Use: prontodb copy pipe.cache.timestamp_hash proper.address");
+    println!();
+    println!("  # Recovery workflow with automatic cleanup");
+    println!("  prontodb copy pipe.cache.123456_abcd1234 myapp.recovered.data");
+    println!("  # → ✅ Copied and cleaned up cache");
+    println!();
+    println!("  # Cache entries auto-expire in 15 minutes for system cleanliness");
+    println!("  # Pipe cache prevents data loss when experimenting with CLI database commands");
+    println!();
+}
+
+#[cfg(feature = "streaming")]
+fn print_xstream_help() {
+    println!("XSTREAM TOKEN PROCESSING (Feature: streaming):");
+    println!("  # Process structured token streams with namespace routing");
+    println!("  echo 'ns=project; key=value; meta:path=/config;' | prontodb stream");
+    println!("  echo 'meta:prod; api.key=secret; data.cache=value;' | prontodb stream");
+    println!();
+    println!("  # Namespace processing:");
+    println!("  #   meta: → routing directives and system commands");
+    println!("  #   sec:  → security context and authentication");  
+    println!("  #   data: → regular key-value storage (default)");
+    println!();
+    println!("  # Educational suggestions for advanced users");
+    println!("  echo 'complex; data=structure;' | prontodb set invalid.addr");
+    println!("  # → 🎓 Detected structured data! Try XStream format:");
+    println!("  # → echo 'ns=project; data=structure;' | prontodb stream");
+    println!();
 }
 
 fn print_cursor_help() -> i32 {
@@ -442,6 +490,79 @@ fn print_backup_help() -> i32 {
     println!("  prontodb backup --output /backups");
     println!("  prontodb backup --restore /backups/prontodb-backup-20250101.tar.gz");
     println!("  prontodb backup --list");
+    0
+}
+
+#[cfg(feature = "pipe-cache")]
+fn print_copy_help() -> i32 {
+    println!("ProntoDB Copy Command - Recovery Workflow");
+    println!();
+    println!("USAGE:");
+    println!("  prontodb copy <source_address> <destination_address>");
+    println!();
+    println!("DESCRIPTION:");
+    println!("  Copy content from one address to another with automatic cache cleanup.");
+    println!("  Primarily used for pipe cache recovery workflow.");
+    println!();
+    println!("EXAMPLES:");
+    println!("  # Recover from pipe cache (cache automatically cleaned up)");
+    println!("  prontodb copy pipe.cache.123456_abcd1234 myapp.config.database_url");
+    println!();
+    println!("  # Standard copy operations");
+    println!("  prontodb copy myapp.old.key myapp.new.key");
+    println!("  prontodb copy staging.config.debug prod.config.debug");
+    println!();
+    println!("  # Copy with TTL preservation");
+    println!("  prontodb copy cache.session.user123 cache.session.user456");
+    println!();
+    println!("PIPE CACHE INTEGRATION:");
+    println!("  When copying from pipe cache entries (pipe.cache.*), the source cache");
+    println!("  entry is automatically deleted after successful copy to keep system clean.");
+    println!();
+    println!("EXIT CODES:");
+    println!("  0    Copy successful");
+    println!("  1    Copy failed (invalid addresses, source not found, etc.)");
+    0
+}
+
+#[cfg(feature = "streaming")]
+fn print_stream_help() -> i32 {
+    println!("ProntoDB XStream Token Processing");
+    println!();
+    println!("USAGE:");
+    println!("  echo '<token_stream>' | prontodb stream");
+    println!("  prontodb stream  # Interactive mode");
+    println!();
+    println!("DESCRIPTION:");
+    println!("  Process structured token streams with intelligent namespace routing.");
+    println!("  Converts XStream token format to ProntoDB storage operations.");
+    println!();
+    println!("TOKEN FORMAT:");
+    println!("  key=value;                    # Simple key-value pair");
+    println!("  ns=project; key=value;        # Namespace-scoped storage");
+    println!("  meta:path=/config; key=val;   # Meta directive with data");
+    println!("  sec:user=alice; data=secret;  # Security context + data");
+    println!();
+    println!("NAMESPACE ROUTING:");
+    println!("  meta:  → System directives and routing commands");
+    println!("  sec:   → Security context and authentication data");
+    println!("  data:  → Regular storage (default namespace)");
+    println!("  <ns>=  → Custom namespace specification");
+    println!();
+    println!("EXAMPLES:");
+    println!("  # Basic token stream");
+    println!("  echo 'app.debug=true; app.version=1.2.3;' | prontodb stream");
+    println!();
+    println!("  # With namespace and meta directives");
+    println!("  echo 'ns=myapp; meta:prod; config.db_host=prod.db.com;' | prontodb stream");
+    println!();
+    println!("  # Security context processing");
+    println!("  echo 'sec:user=admin; meta:auth; permissions=full;' | prontodb stream");
+    println!();
+    println!("INTEGRATION:");
+    println!("  Stream processing integrates with pipe cache - malformed streams");
+    println!("  are cached for recovery, and educational suggestions guide users");
+    println!("  toward proper XStream token format.");
     0
 }
 

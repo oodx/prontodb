@@ -353,6 +353,7 @@ pub struct SetValueConfig<'a> {
     pub cursor_name: Option<&'a str>,
     pub user: &'a str,
     pub database: &'a str,
+    pub meta_context_override: Option<&'a str>,  // Per-command meta context override
 }
 
 pub fn set_value_with_cursor(config: SetValueConfig) -> Result<(), String> {
@@ -363,7 +364,10 @@ pub fn set_value_with_cursor(config: SetValueConfig) -> Result<(), String> {
     user_addr.validate_key(config.ns_delim)?;
     
     // Apply meta context transformation for storage (enhanced project addressing)
-    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    // Use override if provided, otherwise use cursor's stored meta context
+    let meta_context = config.meta_context_override
+        .map(|s| s.to_string())
+        .or_else(|| cursor_data.as_ref().and_then(|c| c.meta_context.clone()));
     let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
 
     let ns_default_ttl = storage
@@ -423,8 +427,9 @@ pub fn get_value_with_cursor(
     ns_delim: &str,
     cursor_name: Option<&str>,
     user: &str,
+    meta_context_override: Option<&str>,
 ) -> Result<Option<String>, String> {
-    get_value_with_cursor_and_database(project, namespace, key_or_path, ns_delim, cursor_name, user, "main")
+    get_value_with_cursor_and_database(project, namespace, key_or_path, ns_delim, cursor_name, user, "main", meta_context_override)
 }
 
 pub fn get_value_with_cursor_and_database(
@@ -435,6 +440,7 @@ pub fn get_value_with_cursor_and_database(
     cursor_name: Option<&str>,
     user: &str,
     db_name: &str,
+    meta_context_override: Option<&str>,
 ) -> Result<Option<String>, String> {
     let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
     
@@ -442,7 +448,10 @@ pub fn get_value_with_cursor_and_database(
     let user_addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::KeyAccess)?;
     
     // Apply meta context transformation
-    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    // Use override if provided, otherwise use cursor's stored meta context
+    let meta_context = meta_context_override
+        .map(|s| s.to_string())
+        .or_else(|| cursor_data.as_ref().and_then(|c| c.meta_context.clone()));
     
     if meta_context.is_some() {
         // With meta context: ONLY use meta-prefixed key (no fallback for pure isolation)
@@ -583,15 +592,27 @@ pub fn list_keys_flexible_with_database(
     user: &str,
     db_name: &str,
 ) -> Result<Vec<String>, String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
     let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::Discovery)?;
     
     // For keys command, the "key" part becomes the prefix
     let prefix = if addr.key.is_empty() { None } else { Some(addr.key.as_str()) };
     
-    storage
-        .list_keys(&addr.project, &addr.namespace, prefix)
-        .map_err(|e| e.to_string())
+    // Apply meta namespace transformation if available
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(meta) = &meta_context {
+        // Use meta-prefixed project for listing
+        let meta_project = format!("{}.{}", meta, addr.project);
+        storage
+            .list_keys(&meta_project, &addr.namespace, prefix)
+            .map_err(|e| e.to_string())
+    } else {
+        // No meta context, use direct listing
+        storage
+            .list_keys(&addr.project, &addr.namespace, prefix)
+            .map_err(|e| e.to_string())
+    }
 }
 
 pub fn scan_pairs_flexible(
@@ -614,15 +635,27 @@ pub fn scan_pairs_flexible_with_database(
     user: &str,
     db_name: &str,
 ) -> Result<Vec<(String, String)>, String> {
-    let storage = open_storage_with_cursor_and_database(cursor_name, user, db_name)?;
+    let (storage, cursor_data) = open_storage_with_cursor_context_and_database(cursor_name, user, db_name)?;
     let addr = parse_address_from_parts(project, namespace, key_or_path, ns_delim, AddressContext::Discovery)?;
     
     // For scan command, the "key" part becomes the prefix
     let prefix = if addr.key.is_empty() { None } else { Some(addr.key.as_str()) };
     
-    storage
-        .scan(&addr.project, &addr.namespace, prefix)
-        .map_err(|e| e.to_string())
+    // Apply meta namespace transformation if available
+    let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
+    
+    if let Some(meta) = &meta_context {
+        // Use meta-prefixed project for scanning
+        let meta_project = format!("{}.{}", meta, addr.project);
+        storage
+            .scan(&meta_project, &addr.namespace, prefix)
+            .map_err(|e| e.to_string())
+    } else {
+        // No meta context, use direct scanning
+        storage
+            .scan(&addr.project, &addr.namespace, prefix)
+            .map_err(|e| e.to_string())
+    }
 }
 
 pub fn create_ttl_namespace_with_cursor(

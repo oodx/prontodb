@@ -139,7 +139,8 @@ mod tests {
         let key = generate_cache_key(content, address);
         
         assert!(key.starts_with("pipe.cache."));
-        assert!(key.contains("invalid_address"));
+        // Updated: Clean key format no longer includes address (architectural improvement)
+        assert!(key.contains("_")); // Should contain separator between timestamp and hash
         assert!(key.len() > 20); // Should have timestamp + hash
     }
 

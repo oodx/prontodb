@@ -76,14 +76,14 @@ fn test_uat_meta_namespace_commands() {
     
     // Test 3: Store data with transparent addressing
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "set", "-c", "uat_org1", "myapp.config.theme", "dark"
+        "--cursor", "uat_org1", "set", "myapp.config.theme", "dark"
     ]);
     println!("✓ Transparent addressing SET: exit_code={}", exit_code);
     assert_eq!(exit_code, 0);
     
     // Test 4: Retrieve data with meta context
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "get", "-c", "uat_org1", "myapp.config.theme"
+        "--cursor", "uat_org1", "get", "myapp.config.theme"
     ]);
     println!("✓ Meta context GET: exit_code={}, value={}", exit_code, stdout.trim());
     assert_eq!(exit_code, 0);
@@ -91,7 +91,7 @@ fn test_uat_meta_namespace_commands() {
     
     // Test 5: List keys with meta context
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "keys", "-c", "uat_org1", "myapp.config"
+        "--cursor", "uat_org1", "keys", "myapp.config"
     ]);
     println!("✓ Meta context KEYS: exit_code={}", exit_code);
     assert_eq!(exit_code, 0);
@@ -99,7 +99,7 @@ fn test_uat_meta_namespace_commands() {
     
     // Test 6: Scan pairs with meta context
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "scan", "-c", "uat_org1", "myapp.config"
+        "--cursor", "uat_org1", "scan", "myapp.config"
     ]);
     println!("✓ Meta context SCAN: exit_code={}", exit_code);
     assert_eq!(exit_code, 0);
@@ -114,14 +114,14 @@ fn test_uat_meta_namespace_commands() {
     
     // Test 8: Store same key in different org
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "set", "-c", "uat_org2", "myapp.config.theme", "light"
+        "--cursor", "uat_org2", "set", "myapp.config.theme", "light"
     ]);
     println!("✓ Isolation SET: exit_code={}", exit_code);
     assert_eq!(exit_code, 0);
     
     // Test 9: Verify isolation (org1 should still see 'dark')
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "get", "-c", "uat_org1", "myapp.config.theme"
+        "--cursor", "uat_org1", "get", "myapp.config.theme"
     ]);
     println!("✓ Isolation verification org1: exit_code={}, value={}", exit_code, stdout.trim());
     assert_eq!(exit_code, 0);
@@ -129,7 +129,7 @@ fn test_uat_meta_namespace_commands() {
     
     // Test 10: Verify isolation (org2 should see 'light')
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "get", "-c", "uat_org2", "myapp.config.theme"
+        "--cursor", "uat_org2", "get", "myapp.config.theme"
     ]);
     println!("✓ Isolation verification org2: exit_code={}, value={}", exit_code, stdout.trim());
     assert_eq!(exit_code, 0);
@@ -143,15 +143,24 @@ fn test_uat_meta_namespace_commands() {
     assert_eq!(exit_code, 0);
     
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "set", "-c", "uat_legacy", "legacy.data.value", "old_format"
+        "--cursor", "uat_legacy", "set", "legacy.data.value", "old_format"
     ]);
     println!("✓ Legacy data storage: exit_code={}", exit_code);
     assert_eq!(exit_code, 0);
     
+    // Test meta namespace isolation (org1 should NOT access legacy data)
     let (stdout, _stderr, exit_code) = env.run_command(&[
-        "get", "-c", "uat_org1", "legacy.data.value"
+        "--cursor", "uat_org1", "get", "legacy.data.value"
     ]);
-    println!("✓ Fallback compatibility: exit_code={}, value={}", exit_code, stdout.trim());
+    println!("✓ Isolation verification: exit_code={}, value={}", exit_code, stdout.trim());
+    assert_eq!(exit_code, 2); // MISS - meta context cannot access root namespace
+    assert_eq!(stdout.trim(), "");
+    
+    // Test that legacy cursor can still access its own data
+    let (stdout, _stderr, exit_code) = env.run_command(&[
+        "--cursor", "uat_legacy", "get", "legacy.data.value"
+    ]);
+    println!("✓ Legacy access verification: exit_code={}, value={}", exit_code, stdout.trim());
     assert_eq!(exit_code, 0);
     assert_eq!(stdout.trim(), "old_format");
     

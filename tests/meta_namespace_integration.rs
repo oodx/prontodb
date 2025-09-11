@@ -63,6 +63,7 @@ fn test_meta_namespace_crud_operations() {
         cursor_name: Some("work"),
         user: "alice",
         database: "main",
+        meta_context_override: None,
     };
     
     set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();
@@ -153,6 +154,7 @@ fn test_meta_namespace_fallback_compatibility() {
         cursor_name: Some("legacy"),
         user: "alice",
         database: "main",
+        meta_context_override: None,
     };
     
     set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();
@@ -167,7 +169,7 @@ fn test_meta_namespace_fallback_compatibility() {
         None,
     );
     
-    // GET operation with meta cursor should fallback to direct key
+    // GET operation with meta cursor should NOT fallback to direct key for security isolation
     let value = get_value_with_cursor_and_manager(
         Some("project1"),
         Some("ns1"),
@@ -179,7 +181,8 @@ fn test_meta_namespace_fallback_compatibility() {
         &env.cursor_manager,
     ).unwrap();
     
-    assert_eq!(value, Some("legacy_value".to_string()));
+    // Meta cursor cannot access root namespace data - this ensures complete isolation
+    assert_eq!(value, None);
 }
 
 #[test]
@@ -218,6 +221,7 @@ fn test_meta_namespace_isolation() {
         cursor_name: Some("org1"),
         user: "alice",
         database: "main",
+        meta_context_override: None,
     };
     
     let config2 = SetValueConfig {
@@ -230,6 +234,7 @@ fn test_meta_namespace_isolation() {
         cursor_name: Some("org2"),
         user: "alice",
         database: "main",
+        meta_context_override: None,
     };
     
     set_value_with_cursor_and_manager(config1, &env.cursor_manager).unwrap();
@@ -313,6 +318,7 @@ fn test_meta_namespace_transparent_addressing() {
         cursor_name: Some("work"),
         user: "alice",
         database: "transparent", // This should match but cursor path takes precedence
+        meta_context_override: None,
     };
     
     set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();

@@ -397,3 +397,14 @@ ProntoDB supports **progressive enhancement** without limiting capabilities:
 - ✅ **Direct database access preserved** - emergency access always possible
 
 This design ensures that **cursor convenience never creates lock-in** while providing powerful enterprise features for those who need them.
+
+
+Clarifications of the --meta flag and meta feature
+
+The --meta flag should be a global flag that
+  can:
+
+  1. Alter the meta path per command - changing the meta context dynamically
+  2. Update the cursor file with the new meta context
+  3. Apply the fourth layer of addressing transparently
+  4. Must be resolved before dispatchers run - in the global argument parsing

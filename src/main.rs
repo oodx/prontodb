@@ -438,6 +438,7 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
     let mut cursor_name: Option<String> = None;
     let mut user = "default".to_string();
     let mut database = "main".to_string();
+    let mut meta_context: Option<String> = None;  // Track --meta flag
     let mut command_args = Vec::new();
     let mut explicit_cursor_flag = false;  // Track if --cursor was used
     let mut explicit_database_flag = false;  // Track if --database was used
@@ -463,6 +464,10 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
             "--database" if i + 1 < args.len() => {
                 database = args[i + 1].clone();
                 explicit_database_flag = true;
+                i += 2;
+            }
+            "--meta" if i + 1 < args.len() => {
+                meta_context = Some(args[i + 1].clone());
                 i += 2;
             }
             _ => {
@@ -509,16 +514,16 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
     
     // Execute command with global context
     match command.as_str() {
-        "set" => Some(execute_with_context("set", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "get" => Some(execute_with_context("get", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "del" => Some(execute_with_context("del", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "keys" => Some(execute_with_context("keys", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "scan" => Some(execute_with_context("scan", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "ls" => Some(execute_with_context("ls", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "projects" => Some(execute_with_context("projects", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "namespaces" => Some(execute_with_context("namespaces", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "nss" => Some(execute_with_context("nss", remaining_args, cursor_name.as_deref(), &user, &database)),
-        "create-cache" => Some(execute_with_context("create-cache", remaining_args, cursor_name.as_deref(), &user, &database)),
+        "set" => Some(execute_with_context("set", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "get" => Some(execute_with_context("get", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "del" => Some(execute_with_context("del", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "keys" => Some(execute_with_context("keys", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "scan" => Some(execute_with_context("scan", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "ls" => Some(execute_with_context("ls", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "projects" => Some(execute_with_context("projects", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "namespaces" => Some(execute_with_context("namespaces", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "nss" => Some(execute_with_context("nss", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
+        "create-cache" => Some(execute_with_context("create-cache", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),
         "cursor" => {
             // For cursor command, we need to pass --user flag to the command as it handles it internally
             let mut cursor_args = remaining_args;
@@ -564,7 +569,7 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
 }
 
 // Execute command with cursor, user, and database context
-fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&str>, user: &str, database: &str) -> i32 {
+fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&str>, user: &str, database: &str, meta_context: Option<&str>) -> i32 {
     use prontodb::api::{*, SetValueConfig};
     use prontodb::addressing::parse_address;
     
@@ -591,6 +596,7 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
                         cursor_name,
                         user,
                         database,
+                        meta_context_override: meta_context,
                     };
                     match set_value_with_cursor(config) {
                         Ok(()) => {
@@ -621,7 +627,7 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
             
             match parse_address(Some(address_str), None, None, None, ".") {
                 Ok(_address) => {
-                    match get_value_with_cursor_and_database(None, None, address_str, ".", cursor_name, user, database) {
+                    match get_value_with_cursor_and_database(None, None, address_str, ".", cursor_name, user, database, meta_context) {
                         Ok(Some(value)) => {
                             println!("{}", value);
                             0
@@ -673,19 +679,65 @@ fn execute_with_context(command: &str, args: Vec<String>, cursor_name: Option<&s
         }
         
         "keys" => {
-            // For list_keys_with_cursor, we need project and namespace
-            // This is a simplified version that lists all keys if no specific project/namespace
-            eprintln!("Warning: Global keys listing not yet fully implemented with cursor context");
-            eprintln!("Use: prontodb [--cursor name] keys project.namespace.prefix");
-            1
+            if args.is_empty() {
+                eprintln!("keys: Missing address");
+                eprintln!("Usage: prontodb [--cursor <name>] [--user <user>] keys <project.namespace[.prefix]>");
+                return 1;
+            }
+            
+            let address_str = &args[0];
+            
+            match parse_address(Some(address_str), None, None, None, ".") {
+                Ok(_address) => {
+                    match list_keys_flexible_with_database(None, None, address_str, ".", cursor_name, user, database) {
+                        Ok(keys) => {
+                            for k in keys {
+                                println!("{}", k);
+                            }
+                            0
+                        }
+                        Err(e) => {
+                            eprintln!("keys: {}", e);
+                            1
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("keys: {}", e);
+                    1
+                }
+            }
         }
         
         "scan" => {
-            // For scan_pairs_with_cursor, we need project and namespace  
-            // This is a simplified version
-            eprintln!("Warning: Global scan not yet fully implemented with cursor context");
-            eprintln!("Use: prontodb [--cursor name] scan project.namespace.prefix");
-            1
+            if args.is_empty() {
+                eprintln!("scan: Missing address");
+                eprintln!("Usage: prontodb [--cursor <name>] [--user <user>] scan <project.namespace[.prefix]>");
+                return 1;
+            }
+            
+            let address_str = &args[0];
+            
+            match parse_address(Some(address_str), None, None, None, ".") {
+                Ok(_address) => {
+                    match scan_pairs_flexible_with_database(None, None, address_str, ".", cursor_name, user, database) {
+                        Ok(pairs) => {
+                            for (k, v) in pairs {
+                                println!("{}={}", k, v);
+                            }
+                            0
+                        }
+                        Err(e) => {
+                            eprintln!("scan: {}", e);
+                            1
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("scan: {}", e);
+                    1
+                }
+            }
         }
         
         "projects" => {

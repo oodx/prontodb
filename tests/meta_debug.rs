@@ -96,6 +96,7 @@ fn debug_step2_storage_operation() {
         cursor_name: Some("org1"),
         user: "alice",
         database: "shared", // Database name parameter (should be overridden by cursor)
+        meta_context_override: None,
     };
     
     println!("Storing value using org1 cursor...");
@@ -156,6 +157,7 @@ fn debug_step3_isolation_validation() {
         cursor_name: Some("org1"),
         user: "alice",
         database: "shared",
+        meta_context_override: None,
     };
     prontodb::api::set_value_with_cursor_and_manager(config1, &env.cursor_manager).unwrap();
     println!("✓ Stored org1_value using org1 cursor");
@@ -171,6 +173,7 @@ fn debug_step3_isolation_validation() {
         cursor_name: Some("org2"),
         user: "alice", 
         database: "shared",
+        meta_context_override: None,
     };
     prontodb::api::set_value_with_cursor_and_manager(config2, &env.cursor_manager).unwrap();
     println!("✓ Stored org2_value using org2 cursor");
@@ -234,6 +237,7 @@ fn debug_step4_storage_inspection() {
         cursor_name: Some("org1"),
         user: "alice",
         database: "shared",
+        meta_context_override: None,
     };
     prontodb::api::set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();
     println!("✓ Stored value via meta cursor");

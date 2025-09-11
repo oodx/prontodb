@@ -92,6 +92,10 @@ impl CommandContext {
                         namespace = Some(args[i + 1].clone());
                         i += 2;
                     }
+                    "c" if i + 1 < args.len() => {
+                        cursor = Some(args[i + 1].clone());
+                        i += 2;
+                    }
                     _ if i + 1 < args.len() && !args[i + 1].starts_with("-") => {
                         flags.insert(flag_name.to_string(), args[i + 1].clone());
                         i += 2;
@@ -255,6 +259,7 @@ fn handle_set(ctx: CommandContext) -> i32 {
         cursor_name: ctx.cursor.as_deref(),
         user: &ctx.user,
         database: &ctx.database,
+        meta_context_override: ctx.flags.get("meta").map(|s| s.as_str()),
     };
     if let Err(e) = api::set_value_with_cursor(config) {
         // If we have piped content and the address is invalid, create pipe cache entry with education
@@ -285,6 +290,7 @@ fn handle_set(ctx: CommandContext) -> i32 {
                 cursor_name: ctx.cursor.as_deref(),
                 user: &ctx.user,
                 database: &ctx.database,
+                meta_context_override: None,  // Pipe cache should not use meta context
             };
             
             match api::set_value_with_cursor(cache_config) {
@@ -329,6 +335,7 @@ fn handle_get(ctx: CommandContext) -> i32 {
         ctx.cursor.as_deref(),
         &ctx.user,
         &ctx.database,
+        ctx.flags.get("meta").map(|s| s.as_str()),
     ) {
         Ok(Some(val)) => {
             println!("{}", val);
@@ -583,6 +590,7 @@ fn handle_copy(ctx: CommandContext) -> i32 {
         ctx.cursor.as_deref(),
         &ctx.user,
         &ctx.database,
+        ctx.flags.get("meta").map(|s| s.as_str()),
     ) {
         Ok(Some(value)) => value,
         Ok(None) => {
@@ -606,6 +614,7 @@ fn handle_copy(ctx: CommandContext) -> i32 {
         cursor_name: ctx.cursor.as_deref(),
         user: &ctx.user,
         database: &ctx.database,
+        meta_context_override: ctx.flags.get("meta").map(|s| s.as_str()),
     };
     
     if let Err(e) = api::set_value_with_cursor(set_config) {

@@ -52,13 +52,14 @@ fn debug_storage_step_by_step() {
         cursor_name: Some("testcursor"),
         user: "alice",
         database: "test", // Should be ignored in favor of cursor path
+        meta_context_override: None, // Use cursor's stored meta context
     };
     
     // Store the value
-    match prontodb::api::set_value_with_cursor(config) {
-        Ok(()) => println!("✓ set_value_with_cursor completed successfully"),
+    match prontodb::api::set_value_with_cursor_and_manager(config, &cursor_manager) {
+        Ok(()) => println!("✓ set_value_with_cursor_and_manager completed successfully"),
         Err(e) => {
-            println!("✗ set_value_with_cursor failed: {}", e);
+            println!("✗ set_value_with_cursor_and_manager failed: {}", e);
             panic!("Storage operation failed: {}", e);
         }
     }
