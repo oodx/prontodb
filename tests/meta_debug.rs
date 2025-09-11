@@ -1,6 +1,6 @@
 // Debug test to systematically validate meta namespace assumptions
 use prontodb::{CursorManager, Storage, XdgPaths};
-use prontodb::api::{SetValueConfig, get_value_with_cursor_and_database};
+use prontodb::api::SetValueConfig;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -99,11 +99,11 @@ fn debug_step2_storage_operation() {
     };
     
     println!("Storing value using org1 cursor...");
-    prontodb::api::set_value_with_cursor(config).unwrap();
+    prontodb::api::set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();
     println!("✓ Storage successful");
     
     // Try to retrieve the value
-    let retrieved = get_value_with_cursor_and_database(
+    let retrieved = prontodb::api::get_value_with_cursor_and_manager(
         Some("project"),
         Some("config"),
         "setting",
@@ -111,6 +111,7 @@ fn debug_step2_storage_operation() {
         Some("org1"),
         "alice",
         "shared",
+        &env.cursor_manager,
     ).unwrap();
     
     println!("Retrieved value: {:?}", retrieved);
@@ -156,7 +157,7 @@ fn debug_step3_isolation_validation() {
         user: "alice",
         database: "shared",
     };
-    prontodb::api::set_value_with_cursor(config1).unwrap();
+    prontodb::api::set_value_with_cursor_and_manager(config1, &env.cursor_manager).unwrap();
     println!("✓ Stored org1_value using org1 cursor");
     
     // Store value using org2 (same key path)
@@ -171,11 +172,11 @@ fn debug_step3_isolation_validation() {
         user: "alice", 
         database: "shared",
     };
-    prontodb::api::set_value_with_cursor(config2).unwrap();
+    prontodb::api::set_value_with_cursor_and_manager(config2, &env.cursor_manager).unwrap();
     println!("✓ Stored org2_value using org2 cursor");
     
     // Verify each cursor sees its own value
-    let value1 = get_value_with_cursor_and_database(
+    let value1 = prontodb::api::get_value_with_cursor_and_manager(
         Some("project"),
         Some("config"), 
         "setting",
@@ -183,9 +184,10 @@ fn debug_step3_isolation_validation() {
         Some("org1"),
         "alice",
         "shared",
+        &env.cursor_manager,
     ).unwrap();
     
-    let value2 = get_value_with_cursor_and_database(
+    let value2 = prontodb::api::get_value_with_cursor_and_manager(
         Some("project"),
         Some("config"),
         "setting", 
@@ -193,6 +195,7 @@ fn debug_step3_isolation_validation() {
         Some("org2"),
         "alice",
         "shared",
+        &env.cursor_manager,
     ).unwrap();
     
     println!("Value retrieved via org1 cursor: {:?}", value1);
@@ -232,7 +235,7 @@ fn debug_step4_storage_inspection() {
         user: "alice",
         database: "shared",
     };
-    prontodb::api::set_value_with_cursor(config).unwrap();
+    prontodb::api::set_value_with_cursor_and_manager(config, &env.cursor_manager).unwrap();
     println!("✓ Stored value via meta cursor");
     
     // Inspect storage directly

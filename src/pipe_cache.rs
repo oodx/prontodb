@@ -33,7 +33,7 @@ pub fn detect_pipe_input() -> Option<String> {
     // Check if stdin is not a TTY (i.e., it's piped)
     if !atty::is(atty::Stream::Stdin) {
         let mut buffer = String::new();
-        let mut stdin = io::stdin();
+        let stdin = io::stdin();
         let mut limited_reader = stdin.take(MAX_PIPE_SIZE as u64);
         
         match limited_reader.read_to_string(&mut buffer) {
@@ -69,6 +69,7 @@ pub fn prepare_pipe_cache(
 
 /// Handle pipe input when set command fails
 /// Returns (cache_key, content) if piped input detected, None otherwise
+#[allow(dead_code)]  // Alternative implementation - functionality integrated into prepare_pipe_cache_with_education
 pub fn detect_and_prepare_pipe_cache(
     invalid_address: &str,
 ) -> Option<(String, String)> {
@@ -94,6 +95,7 @@ pub fn is_pipe_cache_key(key: &str) -> bool {
 }
 
 /// Suggest XStream format for cached content (progressive education)
+#[allow(dead_code)]  // Helper function - functionality integrated into prepare_pipe_cache_with_education
 pub fn suggest_xstream_format(cache_key: &str, target_address: &str) -> String {
     format!(
         "💡 XStream format: echo \"ns={}; key=$(cat {});\" | prontodb stream", 

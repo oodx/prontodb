@@ -7,6 +7,7 @@
 use std::io::{self, Read};
 
 /// Maximum allowed streaming input size (10MB)
+#[allow(dead_code)]  // Used in conditional compilation - false positive when streaming feature disabled
 const MAX_STREAM_SIZE: usize = 10 * 1024 * 1024;
 
 /// Check if streaming feature is enabled at runtime
@@ -33,7 +34,7 @@ fn handle_stream_with_xstream() -> Result<(), String> {
     
     // Read from stdin with memory protection
     let mut buffer = String::new();
-    let mut stdin = io::stdin();
+    let stdin = io::stdin();
     let mut limited_reader = stdin.take(MAX_STREAM_SIZE as u64);
     
     limited_reader.read_to_string(&mut buffer)
@@ -69,7 +70,7 @@ fn process_token_bucket(bucket: xstream::TokenBucket) -> Result<(), String> {
     let paths = XdgPaths::new();
     paths.ensure_dirs().map_err(|e| e.to_string())?;
     let db_path = paths.get_db_path_with_name("main");
-    let mut storage = Storage::open(&db_path).map_err(|e| e.to_string())?;
+    let storage = Storage::open(&db_path).map_err(|e| e.to_string())?;
     let mut processed_count = 0;
     
     // Process each namespace in the bucket
