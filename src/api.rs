@@ -84,11 +84,12 @@ fn open_storage_with_cursor_context_and_database(
     user: &str, 
     db_name: &str
 ) -> Result<(Storage, Option<CursorData>), String> {
+    // Use CursorManager::from_xdg with default paths for CLI consistency
     let paths = XdgPaths::new();
     paths.ensure_dirs().map_err(|e| e.to_string())?;
+    let cursor_manager = CursorManager::from_xdg(paths.clone());
     
     let (db_path, cursor_data) = if let Some(cursor) = cursor_name {
-        let cursor_manager = CursorManager::new();
         cursor_manager.ensure_default_cursor(user).map_err(|e| e.to_string())?;
         
         match cursor_manager.get_cursor(cursor, user) {
@@ -443,10 +444,15 @@ pub fn get_value_with_cursor_and_database(
     // Apply meta context transformation
     let meta_context = cursor_data.as_ref().and_then(|c| c.meta_context.clone());
     
-    if let Some(_) = &meta_context {
-        // When using meta context, ONLY look for meta-prefixed key to maintain isolation
-        let storage_addr = transform_address_for_storage(&user_addr, &meta_context);
-        storage.get(&storage_addr).map_err(|e| e.to_string())
+    if let Some(meta) = &meta_context {
+        // Try meta-prefixed key first
+        let meta_addr = transform_address_for_storage(&user_addr, &meta_context);
+        if let Ok(Some(value)) = storage.get(&meta_addr) {
+            return Ok(Some(value));
+        }
+        
+        // Fallback to direct key for compatibility
+        storage.get(&user_addr).map_err(|e| e.to_string())
     } else {
         // No meta context, use direct lookup
         storage.get(&user_addr).map_err(|e| e.to_string())

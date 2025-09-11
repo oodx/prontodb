@@ -8,6 +8,8 @@
 use std::collections::HashMap;
 
 use crate::api::{self, SetValueConfig};
+use crate::validation;
+
 use crate::cursor_cache::CursorCache;
 
 // Exit codes per TEST-SPEC
@@ -60,7 +62,11 @@ impl CommandContext {
                     cursor = Some(args[i + 1].clone());
                     i += 2;
                 } else if flag_name == "user" && i + 1 < args.len() {
-                    user = args[i + 1].clone();
+                    let user_value = args[i + 1].clone();
+                    if let Err(e) = validation::validate_username(&user_value) {
+                        return Err(format!("Error: {}", e));
+                    }
+                    user = user_value;
                     i += 2;
                 } else if flag_name == "database" && i + 1 < args.len() {
                     database = args[i + 1].clone();
@@ -104,7 +110,8 @@ impl CommandContext {
         }
 
         // Auto-selection logic: Check cursor cache if no explicit database flag was provided
-        if !explicit_database_flag {
+        // AND no explicit cursor was specified (cursor takes precedence over cache)
+        if !explicit_database_flag && cursor.is_none() {
             let cache = CursorCache::new();
             
             // Determine which user to check for cursor cache
@@ -473,29 +480,117 @@ fn handle_stream(_ctx: CommandContext) -> i32 {
 
 fn handle_cursor(ctx: CommandContext) -> i32 {
     use crate::cursor_cache::CursorCache;
+    use crate::cursor::CursorManager;
+    use std::path::PathBuf;
     
     if ctx.args.is_empty() {
-        eprintln!("cursor: Missing subcommand or database name");
-        eprintln!("Usage: prontodb [--user <user>] cursor <database_name>");
+        eprintln!("cursor: Missing subcommand");
+        eprintln!("Usage: prontodb [--user <user>] cursor set <name> <path> [--meta <context>]");
         eprintln!("   or: prontodb [--user <user>] cursor list");
         eprintln!("   or: prontodb [--user <user>] cursor clear");
+        eprintln!("   or: prontodb [--user <user>] cursor active");
+        eprintln!("   or: prontodb [--user <user>] cursor delete <name>");
         return EXIT_ERROR;
     }
     
     let cache = CursorCache::new();
+    let cursor_manager = CursorManager::new();
     
     match ctx.args[0].as_str() {
+        "set" => {
+            // Enhanced cursor management: cursor set <name> <path> [--meta <context>]
+            if ctx.args.len() < 3 {
+                eprintln!("cursor set: Missing cursor name or database path");
+                eprintln!("Usage: prontodb [--user <user>] cursor set <name> <path> [--meta <context>]");
+                return EXIT_ERROR;
+            }
+            
+            let cursor_name = &ctx.args[1];
+            let db_path = PathBuf::from(&ctx.args[2]);
+            
+            // Parse optional --meta flag from flags map
+            let meta_context = ctx.flags.get("meta").cloned();
+            
+            // Set cursor using CursorManager
+            cursor_manager.set_cursor_with_meta(
+                cursor_name,
+                db_path.clone(),
+                &ctx.user,
+                meta_context.clone(),
+                None, // default_project
+                None, // default_namespace
+            );
+            
+            match meta_context {
+                Some(meta) => println!("Cursor '{}' set to '{}' with meta context '{}'", cursor_name, db_path.display(), meta),
+                None => println!("Cursor '{}' set to '{}'", cursor_name, db_path.display()),
+            }
+            EXIT_OK
+        }
+        
         "list" => {
-            let cursors = cache.list_all_cursors();
-            if cursors.is_empty() {
-                println!("No cursor cache found");
-            } else {
-                println!("Cached database selections:");
-                for (user_name, database) in cursors {
-                    println!("  {}: {}", user_name, database);
+            // Show both cache cursors and persistent cursors (filtered by user)
+            let user_cache_cursor = cache.get_cursor(Some(&ctx.user));
+            let persistent_cursors = cursor_manager.list_cursors(&ctx.user);
+            
+            println!("Cursor Management:");
+            println!();
+            
+            let cache_empty = user_cache_cursor.is_none();
+            if !cache_empty {
+                println!("Cache Cursors (lightweight database selection):");
+                if let Some(database) = user_cache_cursor {
+                    println!("  {}: {}", ctx.user, database);
+                }
+                println!();
+            }
+            
+            match persistent_cursors {
+                Ok(cursors) if !cursors.is_empty() => {
+                    println!("Persistent Cursors (enhanced with meta context):");
+                    for (cursor_name, cursor_data) in cursors {
+                        let meta_info = match &cursor_data.meta_context {
+                            Some(meta) => format!(" [meta: {}]", meta),
+                            None => String::new(),
+                        };
+                        println!("  {}: {}{}", cursor_name, cursor_data.database_path.display(), meta_info);
+                    }
+                }
+                Ok(_) => {
+                    if cache_empty {
+                        println!("No cursors found. Use 'cursor set' to create persistent cursors.");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("cursor list: Failed to list persistent cursors: {}", e);
+                    return EXIT_ERROR;
                 }
             }
             EXIT_OK
+        }
+        
+        "delete" => {
+            if ctx.args.len() < 2 {
+                eprintln!("cursor delete: Missing cursor name");
+                eprintln!("Usage: prontodb [--user <user>] cursor delete <name>");
+                return EXIT_ERROR;
+            }
+            
+            let cursor_name = &ctx.args[1];
+            match cursor_manager.delete_cursor(cursor_name, &ctx.user) {
+                Ok(true) => {
+                    println!("Cursor '{}' deleted for user '{}'", cursor_name, ctx.user);
+                    EXIT_OK
+                }
+                Ok(false) => {
+                    eprintln!("cursor delete: Cursor '{}' not found for user '{}'", cursor_name, ctx.user);
+                    EXIT_ERROR
+                }
+                Err(e) => {
+                    eprintln!("cursor delete: Failed to delete cursor: {}", e);
+                    EXIT_ERROR
+                }
+            }
         }
         
         "clear" => {

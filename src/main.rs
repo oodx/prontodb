@@ -9,9 +9,11 @@ mod api;
 mod commands;
 mod cursor;
 mod cursor_cache;
+mod validation;
 
 // Use RSB prelude for macros (bootstrap!/pre_dispatch!/dispatch!)
 use rsb::prelude::*;
+
 
 // Import RSB command handlers
 use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_version, do_cursor, do_noop};
@@ -447,7 +449,12 @@ fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
                 i += 2;
             }
             "--user" if i + 1 < args.len() => {
-                user = args[i + 1].clone();
+                let user_value = args[i + 1].clone();
+                if let Err(e) = validation::validate_username(&user_value) {
+                    eprintln!("Error: {}", e);
+                    return Some(1);
+                }
+                user = user_value;
                 i += 2;
             }
             "--database" if i + 1 < args.len() => {

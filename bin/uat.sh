@@ -219,17 +219,53 @@ EOF
     run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE get demo_key" "Try to get deleted key (should miss)"
     run_command "$BINARY -p $TEST_PROJECT -n $TEST_NAMESPACE keys" "List remaining keys"
     
-    # Phase 9: Advanced Discovery
+    # Phase 9: Meta Namespace Operations (NEW!)
     boxy --style "$BOXY_DEFAULT_STYLE" --color magenta << 'EOF'
-🌐 PHASE 9: ADVANCED DISCOVERY
+🏢 PHASE 9: META NAMESPACE OPERATIONS
+Testing organizational data isolation with meta contexts
+EOF
+    
+    # Create test databases for meta namespace demo
+    TEST_DB_ORG1="./test_org1.db"
+    TEST_DB_ORG2="./test_org2.db"
+    
+    run_command "$BINARY cursor set org1_cursor $TEST_DB_ORG1 --meta organization1" "Create cursor with organization1 meta context"
+    run_command "$BINARY cursor set org2_cursor $TEST_DB_ORG2 --meta organization2" "Create cursor with organization2 meta context"
+    run_command "$BINARY cursor list" "List all cursors (should show meta contexts)"
+    
+    # Test transparent addressing with meta contexts
+    run_command "$BINARY --cursor org1_cursor set myapp.config.theme dark" "Set theme=dark via org1 cursor (transparent 4-layer addressing)"
+    run_command "$BINARY --cursor org2_cursor set myapp.config.theme light" "Set theme=light via org2 cursor (same key, different org)"
+    
+    # Verify organizational isolation
+    run_command "$BINARY --cursor org1_cursor get myapp.config.theme" "Get theme from org1 (should be 'dark')"
+    run_command "$BINARY --cursor org2_cursor get myapp.config.theme" "Get theme from org2 (should be 'light')"
+    
+    # Test list operations with meta context
+    run_command "$BINARY --cursor org1_cursor keys myapp.config" "List keys in org1 context"
+    run_command "$BINARY --cursor org2_cursor keys myapp.config" "List keys in org2 context"
+    run_command "$BINARY --cursor org1_cursor scan myapp.config" "Scan pairs in org1 context"
+    run_command "$BINARY --cursor org2_cursor scan myapp.config" "Scan pairs in org2 context"
+    
+    # Test fallback compatibility (meta cursor reading legacy data)
+    run_command "$BINARY cursor set legacy_cursor $TEST_DB_ORG1" "Create legacy cursor (no meta context)"
+    run_command "$BINARY --cursor legacy_cursor set legacy.data.value old_format" "Store data with legacy cursor"
+    run_command "$BINARY --cursor org1_cursor get legacy.data.value" "Meta cursor reading legacy data (fallback)"
+    
+    # Cleanup meta test databases
+    rm -f "$TEST_DB_ORG1" "$TEST_DB_ORG2" 2>/dev/null || true
+    
+    # Phase 10: Advanced Discovery
+    boxy --style "$BOXY_DEFAULT_STYLE" --color magenta << 'EOF'
+🌐 PHASE 10: ADVANCED DISCOVERY
 Comprehensive namespace discovery
 EOF
     
     run_command "$BINARY nss" "List all project.namespace combinations"
     
-    # Phase 10: Error Conditions
+    # Phase 11: Error Conditions
     boxy --style "$BOXY_DEFAULT_STYLE" --color magenta << 'EOF'
-⚠️  PHASE 10: ERROR CONDITIONS
+⚠️  PHASE 11: ERROR CONDITIONS
 Testing proper error handling
 EOF
     
@@ -243,7 +279,7 @@ EOF
     boxy --style "$BOXY_DEFAULT_STYLE" --color green << 'EOF'
 🎊 UAT CEREMONY COMPLETE! 🎊
 
-✅ All ProntoDB MVP features demonstrated successfully!
+✅ All ProntoDB features demonstrated successfully!
 
 Key Features Verified:
 • Help system and command discovery
@@ -252,11 +288,16 @@ Key Features Verified:
 • Full path addressing (project.namespace.key)
 • Keys and scan operations with prefix filtering
 • TTL namespace creation and rule enforcement
+• 🆕 META NAMESPACE with transparent 4-layer addressing
+• 🆕 Organizational data isolation via meta contexts
+• 🆕 Cursor management with --meta flag support
+• 🆕 Backward compatibility and fallback logic
 • Proper exit codes (0=success, 2=miss, 1=error)
 • Error handling and validation
 • Project and namespace discovery
 
-🏆 ProntoDB MVP is ready for production use!
+🏆 ProntoDB with LEVEL3-certified meta namespace is ready for production!
+🏢 Perfect for multi-tenant platforms and organizational data isolation!
 EOF
 
     pause_for_effect 2

@@ -275,7 +275,23 @@ impl CursorManager {
             let path = entry.path();
             
             if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                if filename.ends_with(user_suffix) {
+                // More precise matching for default user to avoid matching user-specific cursors
+                let matches_user = if user == "default" {
+                    // For default user, match files that end with ".cursor" but NOT ".{someuser}.cursor"
+                    // This means the filename should NOT contain a pattern like ".someuser.cursor"
+                    if filename.ends_with(".cursor") {
+                        // Check if it's a user-specific cursor (contains ".{user}.cursor" pattern)
+                        let before_cursor = filename.strip_suffix(".cursor").unwrap_or("");
+                        !before_cursor.contains('.')
+                    } else {
+                        false
+                    }
+                } else {
+                    // For specific users, match exact suffix
+                    filename.ends_with(&format!(".{}.cursor", user))
+                };
+                
+                if matches_user {
                     let cursor_name = if user == "default" {
                         filename.strip_suffix(".cursor").unwrap_or(filename)
                     } else {

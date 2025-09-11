@@ -6,10 +6,12 @@ pub mod cursor;
 pub mod cursor_cache;
 pub mod dispatcher;
 pub mod storage;
+pub mod validation;
 pub mod xdg;
 
 // Import RSB for command handlers
 // (RSB Args type already available via main.rs imports)
+
 
 // Re-export key types for convenience  
 pub use addressing::Address;
@@ -442,7 +444,27 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
     
     let arg_list = args.all();
     
-    // Note: --user is handled by the global flag system, so we only get positional args here
+    // Parse --user flag from arguments (passed from main.rs global flag handling)
+    let mut user = "default".to_string();
+    let mut filtered_args = Vec::new();
+    let mut i = 0;
+    while i < arg_list.len() {
+        if arg_list[i] == "--user" && i + 1 < arg_list.len() {
+            let user_value = arg_list[i + 1].clone();
+            // Validate username
+            if let Err(e) = validation::validate_username(&user_value) {
+                eprintln!("Error: {}", e);
+                return 1;
+            }
+            user = user_value;
+            i += 2; // Skip both --user and the value
+        } else {
+            filtered_args.push(arg_list[i].clone());
+            i += 1;
+        }
+    }
+    let arg_list = filtered_args; // Use filtered args without --user flag
+    
     if arg_list.is_empty() {
         eprintln!("cursor: Missing subcommand");
         eprintln!("Usage:");
@@ -481,14 +503,13 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
                 i += 1;
             }
             
-            // Get user from global context (RSB handles this)
-            let user = "default"; // This will be overridden by global --user flag
+            // User parsed from arguments above
             
             // Create enhanced cursor with meta context
             cursor_manager.set_cursor_with_meta(
                 cursor_name,
                 db_path.clone(),
-                user,
+                &user,
                 meta_context.clone(),
                 None, // project defaults can be added later
                 None, // namespace defaults can be added later
@@ -502,23 +523,21 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
         }
         
         "list" => {
-            // Show both cache cursors and persistent cursors
-            let cache_cursors = cache.list_all_cursors();
+            // Show both cache cursors and persistent cursors (filtered by user)
+            let user_cache_cursor = cache.get_cursor(if user == "default" { None } else { Some(user.as_str()) });
+            let has_cache_cursor = user_cache_cursor.is_some();
             
             println!("Cursor Management:");
             println!();
             
-            if !cache_cursors.is_empty() {
+            if let Some(database) = user_cache_cursor {
                 println!("Cache Cursors (lightweight database selection):");
-                for (user_name, database) in &cache_cursors {
-                    println!("  {}: {}", user_name, database);
-                }
+                println!("  {}: {}", user, database);
                 println!();
             }
             
             // List persistent cursors for current user
-            let user = "default"; // This will be overridden by global --user flag
-            match cursor_manager.list_cursors(user) {
+            match cursor_manager.list_cursors(&user) {
                 Ok(cursors) => {
                     if !cursors.is_empty() {
                         println!("Persistent Cursors (enhanced with meta context):");
@@ -529,7 +548,7 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
                             };
                             println!("  {}: {}{}", name, cursor_data.database_path.display(), meta_info);
                         }
-                    } else if cache_cursors.is_empty() {
+                    } else if !has_cache_cursor {
                         println!("No cursors found. Use 'cursor set' to create persistent cursors.");
                     }
                 }
@@ -543,10 +562,9 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
         
         "active" => {
             // Show active cursor information
-            let user = "default"; // This will be overridden by global --user flag
             
             // Check cache cursor first
-            let cache_user = if user == "default" { None } else { Some(user) };
+            let cache_user = if user == "default" { None } else { Some(user.as_str()) };
             match cache.get_cursor(cache_user) {
                 Some(database) => {
                     println!("Active cache cursor: {} (for user '{}')", database, user);
@@ -557,7 +575,7 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
             }
             
             // Show default persistent cursor if it exists
-            match cursor_manager.get_cursor("default", user) {
+            match cursor_manager.get_cursor("default", &user) {
                 Ok(cursor_data) => {
                     let meta_info = match &cursor_data.meta_context {
                         Some(meta) => format!(" with meta context '{}'", meta),
@@ -609,17 +627,6 @@ pub fn do_cursor(args: rsb::args::Args) -> i32 {
             }
             
             let cursor_name = &arg_list[1];
-            
-            // Parse --user flag
-            let mut user = "default".to_string();
-            let mut i = 2;
-            while i < arg_list.len() {
-                if arg_list[i] == "--user" && i + 1 < arg_list.len() {
-                    user = arg_list[i + 1].clone();
-                    break;
-                }
-                i += 1;
-            }
             
             let cursor_manager = crate::cursor::CursorManager::new();
             match cursor_manager.delete_cursor(cursor_name, &user) {
