@@ -6,6 +6,9 @@
 #[cfg(feature = "streaming")]
 use std::io::{self, Read};
 
+/// Maximum allowed streaming input size (10MB)
+const MAX_STREAM_SIZE: usize = 10 * 1024 * 1024;
+
 /// Check if streaming feature is enabled at runtime
 pub fn is_streaming_enabled() -> bool {
     cfg!(feature = "streaming")
@@ -28,10 +31,19 @@ pub fn handle_stream_command() -> Result<(), String> {
 fn handle_stream_with_xstream() -> Result<(), String> {
     use xstream::{tokenize_string, collect_tokens, BucketMode};
     
-    // Read from stdin
+    // Read from stdin with memory protection
     let mut buffer = String::new();
-    io::stdin().read_to_string(&mut buffer)
+    let mut stdin = io::stdin();
+    let mut limited_reader = stdin.take(MAX_STREAM_SIZE as u64);
+    
+    limited_reader.read_to_string(&mut buffer)
         .map_err(|e| format!("IO error: {}", e))?;
+    
+    // Check if we hit the limit
+    if buffer.len() >= MAX_STREAM_SIZE {
+        return Err(format!("Input exceeds maximum size of {} bytes ({}MB)", 
+                          MAX_STREAM_SIZE, MAX_STREAM_SIZE / (1024 * 1024)));
+    }
     
     if buffer.trim().is_empty() {
         return Err("No input provided to stream command".to_string());

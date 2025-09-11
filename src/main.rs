@@ -18,7 +18,7 @@ use rsb::prelude::*;
 
 
 // Import RSB command handlers
-use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_admin, do_help, do_version, do_cursor, do_noop};
+use prontodb::{do_set, do_get, do_del, do_keys, do_scan, do_ls, do_create_cache, do_projects, do_namespaces, do_nss, do_stream, do_copy, do_admin, do_help, do_version, do_cursor, do_noop};
 
 // RSB lifecycle command handlers with proper naming convention
 fn do_install(args: rsb::args::Args) -> i32 {
@@ -423,6 +423,7 @@ fn main() {
         "namespaces" => do_namespaces,
         "nss" => do_nss,
         "stream" => do_stream,
+        "copy" => do_copy,
         "admin" => do_admin,
         "cursor" => do_cursor,
         "noop" => do_noop,

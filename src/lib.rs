@@ -94,6 +94,12 @@ pub fn do_stream(args: rsb::args::Args) -> i32 {
     dispatcher::dispatch(vec_args)
 }
 
+pub fn do_copy(args: rsb::args::Args) -> i32 {
+    let mut vec_args = vec!["prontodb".to_string(), "copy".to_string()];
+    vec_args.extend(args.all().iter().cloned());
+    dispatcher::dispatch(vec_args)
+}
+
 pub fn do_admin(args: rsb::args::Args) -> i32 {
     let mut vec_args = vec!["prontodb".to_string(), "admin".to_string()];
     vec_args.extend(args.all().iter().cloned());

@@ -177,6 +177,9 @@ pub fn dispatch(args: Vec<String>) -> i32 {
         // Stream operations
         "stream" => handle_stream(context),
 
+        // Copy operations
+        "copy" => handle_copy(context),
+
         // Admin operations
         "admin" => handle_admin(context),
 
@@ -218,13 +221,29 @@ pub fn dispatch(args: Vec<String>) -> i32 {
 // Implemented handlers
 
 fn handle_set(ctx: CommandContext) -> i32 {
-    if ctx.args.len() < 2 {
-        eprintln!("Usage: set <path|key> <value> [--ttl SECONDS]");
+    if ctx.args.is_empty() {
+        eprintln!("Usage: set <path|key> [value] [--ttl SECONDS]");
+        eprintln!("  If no value provided, will attempt to read from piped input");
         return EXIT_ERROR;
     }
 
     let key_or_path = &ctx.args[0];
-    let value = &ctx.args[1];
+    
+    // Check for piped input first (before consuming args)
+    let piped_content = pipe_cache::detect_pipe_input();
+    
+    let value = if ctx.args.len() >= 2 {
+        // Value provided as parameter
+        &ctx.args[1]
+    } else if let Some(ref content) = piped_content {
+        // No value parameter, but we have piped content - use it directly
+        content
+    } else {
+        // No value parameter and no piped input
+        eprintln!("Usage: set <path|key> <value> [--ttl SECONDS]");
+        eprintln!("  Or pipe content: echo 'data' | prontodb set <address>");
+        return EXIT_ERROR;
+    };
     let ttl_flag = ctx.flags.get("ttl").and_then(|s| s.parse::<u64>().ok());
     let config = SetValueConfig {
         project: ctx.project.as_deref(),
@@ -238,14 +257,16 @@ fn handle_set(ctx: CommandContext) -> i32 {
         database: &ctx.database,
     };
     if let Err(e) = api::set_value_with_cursor(config) {
-        // Try pipe cache recovery on error
-        if let Some((cache_key, content)) = pipe_cache::detect_and_prepare_pipe_cache(key_or_path) {
-            // Store the cached content using the API
+        // If we have piped content and the address is invalid, create pipe cache entry
+        if let Some(ref content) = piped_content {
+            let (cache_key, cached_content) = pipe_cache::prepare_pipe_cache(content, key_or_path);
+            
+            // Store the cached content
             let cache_config = SetValueConfig {
                 project: None,
                 namespace: None,
                 key_or_path: &cache_key,
-                value: &content,
+                value: &cached_content,
                 ns_delim: ".",
                 ttl_flag: Some(pipe_cache::DEFAULT_PIPE_CACHE_TTL),
                 cursor_name: ctx.cursor.as_deref(),
@@ -255,7 +276,9 @@ fn handle_set(ctx: CommandContext) -> i32 {
             
             match api::set_value_with_cursor(cache_config) {
                 Ok(()) => {
-                    // Pipe cache succeeded, return success (user already got feedback)
+                    // Provide user feedback
+                    eprintln!("⚠️  Invalid address '{}' - content cached as: {}", key_or_path, cache_key);
+                    eprintln!("💡 Use: prontodb copy {} <proper.address>", cache_key);
                     return EXIT_OK;
                 }
                 Err(cache_err) => {
@@ -520,6 +543,82 @@ fn handle_stream(_ctx: CommandContext) -> i32 {
             EXIT_ERROR
         }
     }
+}
+
+fn handle_copy(ctx: CommandContext) -> i32 {
+    if ctx.args.len() < 2 {
+        eprintln!("Usage: copy <source> <destination>");
+        eprintln!("  Copy value from source address to destination address");
+        eprintln!("  Automatically cleans up pipe cache entries after successful copy");
+        return EXIT_ERROR;
+    }
+
+    let source = &ctx.args[0];
+    let destination = &ctx.args[1];
+    
+    // Get the source value
+    let source_value = match api::get_value_with_cursor_and_database(
+        ctx.project.as_deref(),
+        ctx.namespace.as_deref(),
+        source,
+        &ctx.ns_delim,
+        ctx.cursor.as_deref(),
+        &ctx.user,
+        &ctx.database,
+    ) {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            eprintln!("Source '{}' not found", source);
+            return EXIT_ERROR;
+        }
+        Err(e) => {
+            eprintln!("Failed to read source '{}': {}", source, e);
+            return EXIT_ERROR;
+        }
+    };
+    
+    // Set the destination value
+    let set_config = SetValueConfig {
+        project: ctx.project.as_deref(),
+        namespace: ctx.namespace.as_deref(),
+        key_or_path: destination,
+        value: &source_value,
+        ns_delim: &ctx.ns_delim,
+        ttl_flag: None, // Don't inherit TTL in copy operations
+        cursor_name: ctx.cursor.as_deref(),
+        user: &ctx.user,
+        database: &ctx.database,
+    };
+    
+    if let Err(e) = api::set_value_with_cursor(set_config) {
+        eprintln!("Failed to copy to destination '{}': {}", destination, e);
+        return EXIT_ERROR;
+    }
+    
+    // If source was a pipe cache entry, clean it up
+    if source.starts_with("pipe.cache.") {
+        match api::delete_value_with_cursor_and_database(
+            ctx.project.as_deref(),
+            ctx.namespace.as_deref(), 
+            source,
+            &ctx.ns_delim,
+            ctx.cursor.as_deref(),
+            &ctx.user,
+            &ctx.database,
+        ) {
+            Ok(()) => {
+                println!("✅ Copied '{}' to '{}' and cleaned up cache", source, destination);
+            }
+            Err(e) => {
+                println!("✅ Copied '{}' to '{}'", source, destination);
+                eprintln!("⚠️  Warning: Failed to cleanup cache entry: {}", e);
+            }
+        }
+    } else {
+        println!("✅ Copied '{}' to '{}'", source, destination);
+    }
+    
+    EXIT_OK
 }
 
 fn handle_cursor(ctx: CommandContext) -> i32 {

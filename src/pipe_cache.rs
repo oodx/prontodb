@@ -5,6 +5,9 @@
 use std::io::{self, Read};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Maximum allowed pipe input size (10MB)
+const MAX_PIPE_SIZE: usize = 10 * 1024 * 1024;
+
 /// Default TTL for pipe cache entries (15 minutes)
 pub const DEFAULT_PIPE_CACHE_TTL: u64 = 900;
 
@@ -30,8 +33,17 @@ pub fn detect_pipe_input() -> Option<String> {
     // Check if stdin is not a TTY (i.e., it's piped)
     if !atty::is(atty::Stream::Stdin) {
         let mut buffer = String::new();
-        match io::stdin().read_to_string(&mut buffer) {
+        let mut stdin = io::stdin();
+        let mut limited_reader = stdin.take(MAX_PIPE_SIZE as u64);
+        
+        match limited_reader.read_to_string(&mut buffer) {
             Ok(_) => {
+                // Check if we hit the size limit
+                if buffer.len() >= MAX_PIPE_SIZE {
+                    eprintln!("⚠️  Piped input exceeds maximum size of {}MB and was truncated", 
+                             MAX_PIPE_SIZE / (1024 * 1024));
+                }
+                
                 if !buffer.trim().is_empty() {
                     Some(buffer)
                 } else {
