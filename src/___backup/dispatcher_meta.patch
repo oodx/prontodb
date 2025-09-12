@@ -1,0 +1,113 @@
+// Patch for dispatcher.rs to support --meta flag and 4-layer addressing
+
+// 1. Add to CommandContext struct (around line 19):
+pub struct CommandContext {
+    pub command: String,
+    pub args: Vec<String>,
+    pub flags: HashMap<String, String>,
+    pub project: Option<String>,
+    pub namespace: Option<String>,
+    pub meta: Option<String>,        // NEW: Meta namespace from --meta flag or 4-dot address
+    pub ns_delim: String,
+    pub cursor: Option<String>,
+    pub user: String,
+    pub database: String,
+}
+
+// 2. Update dispatch function to handle --meta flag (around line 40):
+pub fn dispatch(program: &str, args: Vec<String>) -> i32 {
+    // ... existing code ...
+    
+    // Parse --meta flag
+    let meta = if let Some(idx) = args.iter().position(|a| a == "--meta") {
+        if idx + 1 < args.len() {
+            let meta_value = args[idx + 1].clone();
+            // Remove --meta and its value from args
+            let mut filtered_args = args.clone();
+            filtered_args.remove(idx); // Remove --meta
+            filtered_args.remove(idx); // Remove meta value
+            Some(meta_value)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    // ... rest of existing code ...
+    
+    let ctx = CommandContext {
+        command: command.to_string(),
+        args: remaining_args,
+        flags,
+        project,
+        namespace,
+        meta,  // NEW: Include meta field
+        ns_delim,
+        cursor,
+        user,
+        database,
+    };
+}
+
+// 3. Update handle_set to use Address4 when needed:
+fn handle_set(ctx: CommandContext) -> i32 {
+    // ... existing validation code ...
+    
+    let key_or_path = &ctx.args[0];
+    
+    // Determine if we need 4-layer addressing
+    let dot_count = key_or_path.matches('.').count();
+    let needs_meta = dot_count >= 3 || ctx.meta.is_some();
+    
+    if needs_meta {
+        // Use MetaStorage with Address4
+        use crate::addressing4::Address4;
+        use crate::storage_meta::MetaStorage;
+        
+        let address = if dot_count >= 3 {
+            // Full 4-dot address provided
+            Address4::parse(key_or_path)?
+        } else if let Some(meta) = &ctx.meta {
+            // 3-dot with --meta flag
+            let parts: Vec<&str> = key_or_path.split('.').collect();
+            match parts.len() {
+                3 => Address4::new(meta, &parts[0], &parts[1], &parts[2]),
+                2 => Address4::new(meta, "default", &parts[0], &parts[1]),
+                1 => Address4::new(meta, "default", "default", &parts[0]),
+                _ => return EXIT_ERROR,
+            }
+        } else {
+            // Shouldn't reach here
+            return EXIT_ERROR;
+        };
+        
+        let storage = MetaStorage::new(Path::new(&ctx.database))?;
+        
+        // Register meta if not exists (optional)
+        if let Some(meta) = &ctx.meta {
+            storage.register_meta(meta, &format!("meta_{}", meta), None).ok();
+        }
+        
+        storage.set(&address, value, ttl_flag)?;
+    } else {
+        // Use regular 3-layer addressing (existing code)
+        let config = SetValueConfig {
+            project: ctx.project.as_deref(),
+            namespace: ctx.namespace.as_deref(),
+            key_or_path,
+            value,
+            ns_delim: &ctx.ns_delim,
+            ttl_flag,
+            cursor_name: ctx.cursor.as_deref(),
+            user: &ctx.user,
+        };
+        
+        api::set_value(config)?;
+    }
+    
+    println!("Set {}={}", key_or_path, value);
+    EXIT_OK
+}
+
+// 4. Similar updates needed for handle_get and handle_del

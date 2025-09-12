@@ -1,0 +1,17 @@
+🐔 China's Encoding Test Egg 🥚
+
+Test Scenarios:
+1. Emoji Test: 🌈🚀🍗🐣
+2. Special Characters: §±@#$%^&*()
+3. International Text: 
+   - Spanish: ¡Hola, mundo! 
+   - French: Système d'exploitation
+   - German: Größenänderung
+   - Japanese: こんにちは世界
+   - Arabic: مرحبا بالعالم
+
+Encoding Verification Checklist:
+✅ UTF-8 Compatibility
+✅ Emoji Preservation
+✅ Special Character Handling
+✅ Multilingual Support

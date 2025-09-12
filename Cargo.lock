@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "prontodb"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -633,7 +633,7 @@ dependencies = [
  "pbkdf2",
  "predicates",
  "rand",
- "rsb 0.5.0",
+ "rsb",
  "rusqlite",
  "serde",
  "serde_json",
@@ -735,21 +735,6 @@ name = "regex-syntax"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf4aa5b0f434c91fe5c7f1ecb6a5ece2130b02ad2a590589dda5146df959001"
-
-[[package]]
-name = "rsb"
-version = "0.5.0"
-dependencies = [
- "base64",
- "chrono",
- "glob",
- "lazy_static",
- "libc",
- "rand",
- "regex",
- "urlencoding",
- "uuid",
-]
 
 [[package]]
 name = "rsb"
@@ -1233,7 +1218,7 @@ version = "0.2.0"
 dependencies = [
  "base64",
  "regex",
- "rsb 0.5.0 (git+https://github.com/oodx/rsb-framework?branch=main)",
+ "rsb",
  "serde_json",
  "urlencoding",
 ]

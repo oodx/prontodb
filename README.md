@@ -149,19 +149,31 @@ echo "never lose this" | prontodb set "typo.address.here"
 # → Always cached, always recoverable
 ```
 
-### **XStream Integration (Optional Feature)**
+### **XStream Integration (Advanced Streaming)**
+
+ProntoDB leverages XStream for powerful token-based streaming with advanced routing and context management:
+
 ```bash
-# Build with streaming support
+# Build with full streaming support
 cargo build --features streaming
 
-# XStream token processing
-echo "ns=project; key=value; meta:context=prod;" | prontodb stream
-# → Processes tokens and stores with namespace handling
+# Advanced token processing
+echo "user=keeper; ns=pantheon; iterations=65; meta:path=keeper.iterations;" | prontodb stream
+# → Complete context and namespace handling
 
-# Meta namespace routing
-echo "meta:path=company.engineering; config=debug;" | prontodb stream  
-# → Applies meta context transparently
+# Full token bucket processing
+echo "user=bob; sec:pass=123; ns=animals; dog=fido; meta:p=project.namespace;" | prontodb stream
+# → Comprehensive token routing with security, namespace, and meta directives
 ```
+
+**Key Features:**
+- **🔍 Token Parsing**: Advanced tokenization and bucketing
+- **🔐 Security Namespace**: `sec:` context for authentication
+- **🌐 Namespace Switching**: Dynamic `ns=` context changes
+- **📦 Meta Directives**: `meta:` for transparent routing
+- **⚡ RSB Framework Integration**: Consistent CLI patterns
+
+*Built from ProntoDB's original streaming requirements, XStream brings powerful token processing back home!*
 
 ---
 
