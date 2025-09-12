@@ -3,33 +3,16 @@
 use rsb::prelude::*;
 use prontodb::core::dispatch::pronto_dispatch;
 
-//use std::process::exit;
+use std::process::exit;
 
+fn main() {
+    // Bootstrap - get RSB Args
+    let args = bootstrap!();
+    
+    // Process options and populate global context
+    options!(&args);
 
-//use rsb::deps::rand::{Rng};
-
-fn main() -> i32 {
-
-  //sanity check
-  info!("Loading ProntoDB main");
-
-  //bootstrap
-  let args = bootstrap!();
-  info!("Args received: {:?}", args);
-
-  //options
-
-  //address
-
-  //pre-dispatch
-
-  //dispatch
-  let exit_code = pronto_dispatch(args);
-
-
-  exit_code
-
+    // Dispatch to command handler
+    let exit_code = pronto_dispatch(args);
+    exit(exit_code);
 }
-
-
-

@@ -18,7 +18,7 @@ serde_json = { version = "1", optional = true }
 
 
 #rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main" }  
-rsb     = { path = "../rsb"} #local versions
+rsb     = { path = "../rsb2"} #local versions
 xstream = { path = "../xstream", optional = true } # XStream integration
 
 
@@ -45,4 +45,4 @@ pipe-cache = []                                    # Revolutionary pipe cache wi
 sqlite-bundled = ["rusqlite/bundled"]
 
 compression-zstd = ["dep:zstd"]
-encryption-aes   = ["dep:aes-gcm", "dep:pbkdf2", "dep:sha2", "dep:rand"]
+encryption-aes   = ["dep:aes-gcm", "dep:pbkdf2", "dep:sha2" ] #rand provided by rsb::dep::rand
