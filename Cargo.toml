@@ -3,8 +3,10 @@ name = "prontodb"
 version = "0.7.0"
 edition = "2021"
 description = "ProntoDB — namespaced, file-based KV on SQLite with RSB-style CLI"
-license = "Apache-2.0"
 repository = "https://github.com/oodx/prontodb"
+license = "AGPL-3.0"            
+license-file = "LICENSE"  
+publish = false  
 
 [dependencies]
 anyhow = "1"
@@ -18,7 +20,7 @@ serde_json = { version = "1", optional = true }
 
 
 #rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main" }  
-rsb     = { path = "../rsb2"} #local versions
+rsb     = { path = "../rsb2", features = ["visuals", "stdopts"] } #local versions with visual + standard options
 xstream = { path = "../xstream", optional = true } # XStream integration
 
 
@@ -39,6 +41,7 @@ default = ["json", "sqlite-bundled"]               # Include bundled SQLite for 
 json = ["dep:serde", "dep:serde_json"]
 streaming = ["dep:xstream"]                        # XStream integration for advanced streaming
 pipe-cache = []                                    # Revolutionary pipe cache with zero data loss
+stdopts = []                                       # Standard options mapping (-d → opt_debug, etc.)
 
 # Use system SQLite by default. If you want portability, build with:
 #   cargo build --features sqlite-bundled

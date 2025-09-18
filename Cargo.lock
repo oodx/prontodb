@@ -630,7 +630,7 @@ dependencies = [
  "md5",
  "pbkdf2",
  "predicates",
- "rsb 0.5.2",
+ "rsb 0.13.0",
  "rusqlite",
  "serde",
  "serde_json",
@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "rsb"
-version = "0.5.2"
+version = "0.13.0"
 dependencies = [
  "base64",
  "chrono",
@@ -760,6 +760,8 @@ dependencies = [
  "libc",
  "rand",
  "regex",
+ "serde",
+ "serde_json",
  "urlencoding",
  "uuid",
 ]
@@ -1228,11 +1230,7 @@ checksum = "5c573471f125075647d03df72e026074b7203790d41351cd6edc96f46bcccd36"
 name = "xstream"
 version = "0.2.0"
 dependencies = [
- "base64",
- "regex",
  "rsb 0.5.0",
- "serde_json",
- "urlencoding",
 ]
 
 [[package]]

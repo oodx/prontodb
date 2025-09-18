@@ -1,18 +1,14 @@
 
-// Use RSB prelude for macros (bootstrap!/pre_dispatch!/dispatch!)
 use rsb::prelude::*;
+
+// Keep the ProntoDB router central (uses RSB dispatch! under the hood)
 use prontodb::core::dispatch::pronto_dispatch;
 
-use std::process::exit;
-
 fn main() {
-    // Bootstrap - get RSB Args
+    // CLI + Host bootstrap, then parse options into Global
     let args = bootstrap!();
-    
-    // Process options and populate global context
     options!(&args);
 
-    // Dispatch to command handler
-    let exit_code = pronto_dispatch(args);
-    exit(exit_code);
+    // Route using RSB dispatch! inside pronto_dispatch (exits with handler status)
+    pronto_dispatch(args);
 }

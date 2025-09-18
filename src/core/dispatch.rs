@@ -1,6 +1,9 @@
 // Minimal dispatcher for testing routing
 use rsb::prelude::*;
 
+// Import RSB visual macros directly (compiler suggested)
+use rsb::info;
+
 pub fn pronto_dispatch(args: rsb::args::Args) -> i32 {
     info!("Dispatch called with {} args", args.all().len());
     
@@ -12,7 +15,7 @@ pub fn pronto_dispatch(args: rsb::args::Args) -> i32 {
     let command = args.get_or(1, "");
     info!("Processing command: '{}'", command);
     
-    // Use RSB dispatch! macro (now expects &Args)
+    // Try RSB dispatch! macro (now that global functions are fixed)
     dispatch!(&args, {
         "set" => do_set,
         "get" => do_get, 
@@ -40,33 +43,33 @@ pub fn pronto_dispatch(args: rsb::args::Args) -> i32 {
 }
 
 // Command stubs - RSB dispatch expects fn(Args) -> i32
-fn do_set(mut args: Args) -> i32 { 
-    info!("✓ Executing: set"); 
-    // Test if options were stored in global context
-    if has_var("opt_verbose") {
-        info!("Verbose mode enabled: {}", get_var("opt_verbose"));
-    }
-    0 
+fn do_set(mut args: Args) -> i32 {
+    info!("Executing: set");
+    // Surface parsed options for E2E verification
+    if has_var("opt_verbose") { info!("Verbose mode enabled: {}", get_var("opt_verbose")); }
+    if has_var("opt_debug") { info!("Debug mode enabled: {}", get_var("opt_debug")); }
+    if has_var("opt_config") { info!("Config path: {}", get_var("opt_config")); }
+    0
 }
-fn do_get(mut args: Args) -> i32 { info!("✓ Executing: get"); 0 }
-fn do_del(mut args: Args) -> i32 { info!("✓ Executing: del"); 0 }
-fn do_keys(mut args: Args) -> i32 { info!("✓ Executing: keys"); 0 }
-fn do_scan(mut args: Args) -> i32 { info!("✓ Executing: scan"); 0 }
-fn do_ls(mut args: Args) -> i32 { info!("✓ Executing: ls"); 0 }
-fn do_create_cache(mut args: Args) -> i32 { info!("✓ Executing: create-cache"); 0 }
-fn do_projects(mut args: Args) -> i32 { info!("✓ Executing: projects"); 0 }
-fn do_namespaces(mut args: Args) -> i32 { info!("✓ Executing: namespaces"); 0 }
-fn do_nss(mut args: Args) -> i32 { info!("✓ Executing: nss"); 0 }
-fn do_stream(mut args: Args) -> i32 { info!("✓ Executing: stream"); 0 }
-fn do_copy(mut args: Args) -> i32 { info!("✓ Executing: copy"); 0 }
-fn do_admin(mut args: Args) -> i32 { info!("✓ Executing: admin"); 0 }
-fn do_cursor(mut args: Args) -> i32 { info!("✓ Executing: cursor"); 0 }
-fn do_nuclear_clean(mut args: Args) -> i32 { info!("✓ Executing: nuclear-clean"); 0 }
-fn do_install(mut args: Args) -> i32 { info!("✓ Executing: install"); 0 }
-fn do_uninstall(mut args: Args) -> i32 { info!("✓ Executing: uninstall"); 0 }
-fn do_backup(mut args: Args) -> i32 { info!("✓ Executing: backup"); 0 }
-fn do_restore(mut args: Args) -> i32 { info!("✓ Executing: restore"); 0 }
-fn do_version(mut args: Args) -> i32 { info!("✓ Executing: version"); 0 }
+fn do_get(mut args: Args) -> i32 { info!("Executing: get"); 0 }
+fn do_del(mut args: Args) -> i32 { info!("Executing: del"); 0 }
+fn do_keys(mut args: Args) -> i32 { info!("Executing: keys"); 0 }
+fn do_scan(mut args: Args) -> i32 { info!("Executing: scan"); 0 }
+fn do_ls(mut args: Args) -> i32 { info!("Executing: ls"); 0 }
+fn do_create_cache(mut args: Args) -> i32 { info!("Executing: create-cache"); 0 }
+fn do_projects(mut args: Args) -> i32 { info!("Executing: projects"); 0 }
+fn do_namespaces(mut args: Args) -> i32 { info!("Executing: namespaces"); 0 }
+fn do_nss(mut args: Args) -> i32 { info!("Executing: nss"); 0 }
+fn do_stream(mut args: Args) -> i32 { info!("Executing: stream"); 0 }
+fn do_copy(mut args: Args) -> i32 { info!("Executing: copy"); 0 }
+fn do_admin(mut args: Args) -> i32 { info!("Executing: admin"); 0 }
+fn do_cursor(mut args: Args) -> i32 { info!("Executing: cursor"); 0 }
+fn do_nuclear_clean(mut args: Args) -> i32 { info!("Executing: nuclear-clean"); 0 }
+fn do_install(mut args: Args) -> i32 { info!("Executing: install"); 0 }
+fn do_uninstall(mut args: Args) -> i32 { info!("Executing: uninstall"); 0 }
+fn do_backup(mut args: Args) -> i32 { info!("Executing: backup"); 0 }
+fn do_restore(mut args: Args) -> i32 { info!("Executing: restore"); 0 }
+fn do_version(mut args: Args) -> i32 { info!("Executing: version"); 0 }
 
 fn do_help(mut args: Args) -> i32 {
     info!("ProntoDB - Available Commands:");
