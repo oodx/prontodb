@@ -1,0 +1,137 @@
+====
+ 🚨 CRITICAL ARCHITECTURAL FLAW ANALYSIS
+====
+Discovery Date: 2025-09-21
+Severity: CRITICAL - Requires Complete Rebuild
+Impact: Fundamental design assumption invalidated
+
+====
+ 💥 THE CORE PROBLEM
+====
+
+**Current (Broken) Design**:
+- Single shared SQLite database
+- Addressing via namespaced keys (user.cursor.namespace.key)
+- Shared storage with logical separation
+
+**Fatal Flaw**:
+Each address needs its own isolated keystore to work as expected.
+The abstraction layer was fundamentally wrong from the start.
+
+**Real-World Impact**:
+- Multi-agent isolation is compromised
+- Address-based workflows cannot function correctly
+- Concurrency and isolation guarantees are broken
+- Performance characteristics are suboptimal
+
+====
+ 🎯 REQUIRED NEW ARCHITECTURE
+====
+
+**Target Design**:
+- **Per-Address Keystores**: Each address gets its own database file
+- **Address-First Design**: Address becomes the primary isolation boundary
+- **Independent Storage**: No shared state between addresses
+- **True Isolation**: Complete separation at the storage layer
+
+**Example Structure**:
+```
+~/.local/share/prontodb/
+├── addresses/
+│   ├── user1.cursor1/
+│   │   └── keystore.db
+│   ├── user1.cursor2/
+│   │   └── keystore.db
+│   ├── user2.cursor1/
+│   │   └── keystore.db
+│   └── ...
+└── meta/
+    ├── address_registry.db
+    └── global_config.db
+```
+
+====
+ 📊 IMPACT ASSESSMENT
+====
+
+**What Must Be Rebuilt**:
+- ❌ Storage layer (src/storage.rs) - Complete rewrite
+- ❌ Addressing system (src/addressing.rs) - Complete redesign
+- ❌ API layer (src/api.rs) - Major changes for per-address routing
+- ❌ Database initialization logic - Per-address creation
+- ❌ Backup/restore - Handle multiple keystores
+- ❌ Copy operations - Cross-address copying
+
+**What Can Be Preserved**:
+- ✅ RSB framework integration (src/main.rs)
+- ✅ CLI dispatch patterns (src/dispatcher.rs)
+- ✅ XDG path handling (src/xdg.rs)
+- ✅ Test infrastructure patterns
+- ✅ Deploy/build scripts
+- ✅ Meta Process v2 documentation system
+
+====
+ 🚧 REBUILD STRATEGY
+====
+
+**Phase 1: Architecture Design**
+1. Define per-address keystore schema
+2. Design address registry system
+3. Plan migration from current broken state
+4. Create new storage abstraction layer
+
+**Phase 2: Core Rebuild**
+1. Implement new storage layer with per-address isolation
+2. Rebuild addressing system from ground up
+3. Update API layer for new architecture
+4. Implement address lifecycle management
+
+**Phase 3: Feature Restoration**
+1. Restore backup/restore for multi-keystore system
+2. Implement cross-address copy operations
+3. Update all CLI commands for new architecture
+4. Comprehensive testing with real isolation
+
+**Phase 4: Validation**
+1. Multi-agent isolation testing
+2. Performance benchmarking
+3. Concurrency stress testing
+4. Production deployment validation
+
+====
+ 💡 ARCHITECTURAL INSIGHTS
+====
+
+**Why This Matters**:
+- True multi-agent workflows require complete isolation
+- Address-based routing is the correct abstraction
+- Shared databases create hidden coupling
+- Performance scales better with distributed keystores
+
+**Design Principles**:
+1. Address-first design (not user-first)
+2. Complete isolation at storage level
+3. No shared state between addresses
+4. Simple, predictable routing model
+
+====
+ ⚠️ CRITICAL DEPENDENCIES
+====
+
+- This is blocking ALL multi-agent use cases
+- Current codebase is fundamentally compromised
+- Meta Process v2 documentation will track the rebuild
+- RSB compliance must be maintained throughout
+
+====
+ 🎯 SUCCESS CRITERIA
+====
+
+- [ ] Each address has isolated storage
+- [ ] True multi-agent workflows work correctly
+- [ ] Performance meets or exceeds current system
+- [ ] Zero shared state between addresses
+- [ ] Clean migration path from broken architecture
+- [ ] RSB compliance maintained
+
+====

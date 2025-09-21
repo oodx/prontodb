@@ -1,0 +1,306 @@
+====
+ 🏗️ PRONTODB CORE MODULES ARCHITECTURE - BUILD IT RIGHT
+====
+Design Date: 2025-09-21
+Approach: Core modules first, filesystem-based storage
+Golden Rule: Address structure mirrors filesystem structure
+
+====
+ 🎯 CORE MODULE HIERARCHY (Build Order)
+====
+
+## LEVEL 1: FUNDAMENTAL STORAGE (Build First)
+```
+src/core/
+├── keystore.rs           ← Individual SQLite keystore management
+├── paths.rs              ← Filesystem path resolution (XDG compliant)
+└── isolation.rs          ← Per-keystore isolation primitives
+```
+
+## LEVEL 2: ADDRESSING (Build Second)
+```
+src/addressing/
+├── address.rs            ← Address parsing (meta.project.namespace.key)
+├── resolver.rs           ← Address → filesystem path mapping
+└── validation.rs         ← Address format validation
+```
+
+## LEVEL 3: STORAGE API (Build Third)
+```
+src/storage/
+├── manager.rs            ← Keystore lifecycle management
+├── operations.rs         ← CRUD operations (get/set/delete/list)
+└── transactions.rs       ← Multi-keystore operations
+```
+
+## LEVEL 4: APPLICATION LAYER (Build Last)
+```
+src/
+├── api.rs                ← High-level API
+├── dispatcher.rs         ← Command routing
+└── main.rs               ← RSB integration
+```
+
+====
+ 📁 CORE PRINCIPLE: FILESYSTEM-FIRST DESIGN
+====
+
+## Address Resolution Flow
+```
+Input: meta.project.namespace.key
+         ↓
+Path: ~/.local/share/prontodb/data/meta/project/namespace.keystore
+         ↓
+Open SQLite connection to that specific file
+         ↓
+Direct operations on isolated keystore
+```
+
+## Core Architecture Rules
+1. **One keystore file per namespace** - No shared databases
+2. **Filesystem hierarchy matches address hierarchy**
+3. **No application-layer string manipulation for isolation**
+4. **Direct path construction, no database queries for routing**
+
+====
+ 🔧 MODULE 1: KEYSTORE.RS (The Foundation)
+====
+
+```rust
+use std::path::PathBuf;
+use rusqlite::{Connection, Result};
+
+/// Individual keystore - one per namespace
+pub struct Keystore {
+    path: PathBuf,
+    connection: Connection,
+}
+
+impl Keystore {
+    /// Create or open a keystore at the given path
+    pub fn open(path: PathBuf) -> Result<Self> {
+        // Ensure parent directories exist
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+                    Some(format!("Cannot create directory: {}", e))
+                )
+            })?;
+        }
+
+        let connection = Connection::open(&path)?;
+
+        // Initialize schema
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS kv (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                ttl_expires_at INTEGER
+            )",
+            [],
+        )?;
+
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ttl_expires ON kv(ttl_expires_at)",
+            [],
+        )?;
+
+        Ok(Keystore { path, connection })
+    }
+
+    pub fn set(&self, key: &str, value: &str) -> Result<()> {
+        let now = chrono::Utc::now().timestamp();
+        self.connection.execute(
+            "INSERT OR REPLACE INTO kv (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            [key, value, &now.to_string(), &now.to_string()],
+        )?;
+        Ok(())
+    }
+
+    pub fn get(&self, key: &str) -> Result<Option<String>> {
+        let mut stmt = self.connection.prepare("SELECT value FROM kv WHERE key = ?")?;
+        let mut rows = stmt.query_map([key], |row| Ok(row.get(0)?))?;
+
+        match rows.next() {
+            Some(Ok(value)) => Ok(Some(value)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }
+    }
+
+    pub fn delete(&self, key: &str) -> Result<bool> {
+        let changes = self.connection.execute("DELETE FROM kv WHERE key = ?", [key])?;
+        Ok(changes > 0)
+    }
+
+    pub fn list_keys(&self, prefix: Option<&str>) -> Result<Vec<String>> {
+        let query = match prefix {
+            Some(_) => "SELECT key FROM kv WHERE key LIKE ? ORDER BY key",
+            None => "SELECT key FROM kv ORDER BY key",
+        };
+
+        let mut stmt = self.connection.prepare(query)?;
+        let rows = match prefix {
+            Some(p) => stmt.query_map([format!("{}%", p)], |row| Ok(row.get(0)?))?,
+            None => stmt.query_map([], |row| Ok(row.get(0)?))?,
+        };
+
+        let mut keys = Vec::new();
+        for row in rows {
+            keys.push(row?);
+        }
+        Ok(keys)
+    }
+}
+```
+
+====
+ 🗺️ MODULE 2: PATHS.RS (Filesystem Mapping)
+====
+
+```rust
+use std::path::PathBuf;
+use crate::addressing::Address;
+
+/// Filesystem path resolver - the heart of the new architecture
+pub struct PathResolver {
+    base_dir: PathBuf,
+}
+
+impl PathResolver {
+    pub fn new() -> Self {
+        let base_dir = dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("prontodb")
+            .join("data");
+
+        PathResolver { base_dir }
+    }
+
+    /// Convert address to keystore file path
+    /// meta.project.namespace.key → ~/.local/share/prontodb/data/meta/project/namespace.keystore
+    pub fn resolve_keystore_path(&self, address: &Address) -> PathBuf {
+        self.base_dir
+            .join(&address.meta)
+            .join(&address.project)
+            .join(format!("{}.keystore", address.namespace))
+    }
+
+    /// Get all keystore paths for a project
+    pub fn list_project_keystores(&self, meta: &str, project: &str) -> std::io::Result<Vec<PathBuf>> {
+        let project_dir = self.base_dir.join(meta).join(project);
+
+        if !project_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut keystores = Vec::new();
+        for entry in std::fs::read_dir(project_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("keystore") {
+                keystores.push(path);
+            }
+        }
+        Ok(keystores)
+    }
+
+    pub fn ensure_base_dir(&self) -> std::io::Result<()> {
+        std::fs::create_dir_all(&self.base_dir)
+    }
+}
+```
+
+====
+ 📍 MODULE 3: ADDRESS.RS (Clean Address Parsing)
+====
+
+```rust
+/// Clean 4-part address representation
+#[derive(Debug, Clone, PartialEq)]
+pub struct Address {
+    pub meta: String,
+    pub project: String,
+    pub namespace: String,
+    pub key: String,
+}
+
+impl Address {
+    /// Parse from dot notation: meta.project.namespace.key
+    pub fn parse(input: &str) -> Result<Self, AddressError> {
+        let parts: Vec<&str> = input.split('.').collect();
+
+        match parts.len() {
+            4 => Ok(Address {
+                meta: parts[0].to_string(),
+                project: parts[1].to_string(),
+                namespace: parts[2].to_string(),
+                key: parts[3].to_string(),
+            }),
+            3 => Ok(Address {
+                meta: "default".to_string(),
+                project: parts[0].to_string(),
+                namespace: parts[1].to_string(),
+                key: parts[2].to_string(),
+            }),
+            _ => Err(AddressError::InvalidFormat(input.to_string())),
+        }
+    }
+
+    /// Convert back to string representation
+    pub fn to_string(&self) -> String {
+        format!("{}.{}.{}.{}", self.meta, self.project, self.namespace, self.key)
+    }
+
+    /// Get the namespace address (without key)
+    pub fn namespace_address(&self) -> String {
+        format!("{}.{}.{}", self.meta, self.project, self.namespace)
+    }
+}
+
+#[derive(Debug)]
+pub enum AddressError {
+    InvalidFormat(String),
+    EmptyComponent(String),
+    InvalidCharacter(char),
+}
+```
+
+====
+ 🚀 BUILD SEQUENCE (Critical Order)
+====
+
+## Phase 1: Core Storage (Days 1-2)
+1. Implement `keystore.rs` - Individual SQLite keystore
+2. Implement `paths.rs` - Filesystem path resolution
+3. Test basic keystore operations in isolation
+
+## Phase 2: Addressing (Day 3)
+1. Implement `address.rs` - Clean address parsing
+2. Implement `resolver.rs` - Address to path mapping
+3. Test address resolution to filesystem paths
+
+## Phase 3: Storage Manager (Day 4)
+1. Implement `manager.rs` - Keystore lifecycle
+2. Implement `operations.rs` - High-level CRUD
+3. Test multi-keystore operations
+
+## Phase 4: Integration (Day 5)
+1. Wire up to existing RSB patterns
+2. Implement CLI commands
+3. Migration from old broken format
+
+====
+ ⚠️ CRITICAL SUCCESS FACTORS
+====
+
+1. **Build core modules in strict order** - No jumping ahead
+2. **Test each module in isolation** before building the next
+3. **Filesystem paths are the source of truth** - No database routing
+4. **One keystore file per namespace** - No shared databases
+5. **Address parsing is pure** - No storage dependencies
+
+====

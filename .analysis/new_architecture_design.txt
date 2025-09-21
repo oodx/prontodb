@@ -1,0 +1,206 @@
+====
+ 🏗️ NEW PRONTODB ARCHITECTURE: PER-ADDRESS KEYSTORES
+====
+Design Date: 2025-09-21
+Status: Initial Design Phase
+Target: True multi-agent isolation
+
+====
+ 🎯 CORE DESIGN PRINCIPLES
+====
+
+1. **Address-First Architecture**: Each address gets isolated storage
+2. **True Isolation**: No shared state between addresses
+3. **Performance**: Direct address routing without namespace overhead
+4. **Scalability**: Independent keystore scaling
+5. **RSB Compliance**: Maintain string-biased API patterns
+
+====
+ 📁 NEW FILESYSTEM STRUCTURE
+====
+
+```
+~/.local/share/prontodb/
+├── addresses/                    ← Per-address isolated keystores
+│   ├── user1/
+│   │   ├── cursor1/
+│   │   │   ├── keystore.db      ← Individual SQLite database
+│   │   │   └── metadata.json    ← Address-specific config
+│   │   ├── cursor2/
+│   │   │   ├── keystore.db
+│   │   │   └── metadata.json
+│   │   └── _default/            ← Default cursor when none specified
+│   │       ├── keystore.db
+│   │       └── metadata.json
+│   ├── user2/
+│   │   └── cursor1/
+│   │       ├── keystore.db
+│   │       └── metadata.json
+│   └── _global/                 ← Global shared data (minimal)
+│       └── cursor1/
+│           ├── keystore.db
+│           └── metadata.json
+├── registry/                     ← Address registry and management
+│   ├── address_registry.db      ← Track all known addresses
+│   ├── active_sessions.db       ← Track active sessions per address
+│   └── global_config.json       ← System-wide configuration
+└── backups/                     ← Backup management
+    ├── full/                    ← Complete system backups
+    └── incremental/             ← Per-address incremental backups
+```
+
+====
+ 🔧 NEW API ARCHITECTURE
+====
+
+## Address Resolution Flow
+```
+CLI Input: --user agent1 --cursor prod set app.config "value"
+         ↓
+Address Resolution: user=agent1, cursor=prod
+         ↓
+Path: ~/.local/share/prontodb/addresses/agent1/prod/keystore.db
+         ↓
+Direct SQLite Operations on isolated database
+```
+
+## Storage Layer Interface
+```rust
+pub struct AddressedStorage {
+    pub user: String,
+    pub cursor: String,
+    pub keystore_path: PathBuf,
+    pub connection: Connection,
+}
+
+impl AddressedStorage {
+    pub fn resolve_address(user: &str, cursor: &str) -> Result<Self>;
+    pub fn ensure_keystore_exists(&self) -> Result<()>;
+    pub fn set(&self, key: &str, value: &str) -> Result<()>;
+    pub fn get(&self, key: &str) -> Result<Option<String>>;
+    pub fn delete(&self, key: &str) -> Result<()>;
+    pub fn list_keys(&self, prefix: Option<&str>) -> Result<Vec<String>>;
+}
+```
+
+====
+ 📊 MIGRATION STRATEGY
+====
+
+## Phase 1: New Storage Layer (2-3 days)
+1. Implement AddressedStorage struct
+2. Create address resolution logic
+3. Build per-address SQLite management
+4. Add keystore lifecycle management
+
+## Phase 2: API Layer Rebuild (2-3 days)
+1. Rebuild src/api.rs for address-first routing
+2. Update all commands for new storage interface
+3. Implement cross-address operations (copy, backup)
+4. Add address registry management
+
+## Phase 3: CLI Integration (1-2 days)
+1. Update dispatcher for new address resolution
+2. Maintain RSB compliance patterns
+3. Update help and error messages
+4. Add address discovery commands
+
+## Phase 4: Migration & Testing (2-3 days)
+1. Create migration tool from old broken format
+2. Comprehensive isolation testing
+3. Performance benchmarking
+4. Multi-agent stress testing
+
+====
+ 💾 DATA MODEL CHANGES
+====
+
+## Old (Broken) Model
+```sql
+-- Single shared database
+CREATE TABLE kvstore (
+    id INTEGER PRIMARY KEY,
+    address TEXT NOT NULL,  -- user.cursor.namespace.key
+    value TEXT NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+## New (Correct) Model
+```sql
+-- Per-address database schema
+CREATE TABLE kvstore (
+    id INTEGER PRIMARY KEY,
+    namespace_key TEXT NOT NULL,  -- namespace.key only
+    value TEXT NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    ttl_expires_at TIMESTAMP,     -- For TTL support
+    UNIQUE(namespace_key)
+);
+
+CREATE INDEX idx_namespace_key ON kvstore(namespace_key);
+CREATE INDEX idx_ttl_expires ON kvstore(ttl_expires_at);
+```
+
+====
+ 🚀 PERFORMANCE IMPLICATIONS
+====
+
+## Benefits
+- **Direct Routing**: No namespace parsing overhead
+- **Parallel Operations**: Independent databases = better concurrency
+- **Isolated Locking**: No cross-address lock contention
+- **Selective Backup**: Backup only needed addresses
+- **True Scaling**: Each address scales independently
+
+## Considerations
+- **File Handles**: More SQLite files = more file descriptors
+- **Memory Usage**: Multiple connections in memory
+- **Disk Space**: Some overhead per keystore
+- **Complexity**: Address lifecycle management
+
+====
+ 🔒 SECURITY & ISOLATION
+====
+
+## True Isolation Guarantees
+- **File System Isolation**: Separate database files
+- **Process Isolation**: Independent SQLite connections
+- **No Shared Memory**: Zero cross-contamination
+- **Clear Boundaries**: Address-based permissions
+
+## Security Model
+- File permissions per address directory
+- Optional encryption per keystore
+- Address-based access control
+- Audit logging per address
+
+====
+ 🧪 TESTING STRATEGY
+====
+
+## Isolation Tests
+1. Multi-agent concurrent operations
+2. Cross-address data verification
+3. Performance under concurrent load
+4. File system isolation verification
+
+## Migration Tests
+1. Old format data preservation
+2. Address mapping correctness
+3. Data integrity verification
+4. Performance comparison
+
+====
+ 🚨 CRITICAL SUCCESS FACTORS
+====
+
+1. **True Isolation**: Multi-agent workflows must work correctly
+2. **Performance**: Must meet or exceed current broken implementation
+3. **RSB Compliance**: Maintain string-biased API patterns
+4. **Migration**: Clean path from current broken state
+5. **Documentation**: Track architectural decision rationale
+
+====
