@@ -1,0 +1,194 @@
+====
+ 📋 PRONTODB SELF-HYDRATING WORKFLOW PROCESS
+====
+Updated: 2025-09-21
+Version: Meta Process v2
+
+====
+ 🗂️ PROJECT STRUCTURE & KEY DOCUMENTS
+====
+
+## Entry Points
+- START.txt                     ← You are here (project entry)
+- docs/procs/PROCESS.txt        ← This file (master workflow)
+- docs/procs/QUICK_REF.txt      ← 30-second ultra-fast context
+- docs/procs/CONTINUE.md        ← Session handoff & status
+
+## Process Documents (docs/procs/)
+- SPRINT.txt                    ← Current active tasks
+- ROADMAP.txt                   ← Strategic milestones
+- TASKS.txt                     ← Full task breakdown
+- DONE.txt                      ← Completed work archive
+
+## Reference Documents (docs/ref/)
+- README.md                     ← Project overview (at root)
+- RSB_LESSONS.md                ← RSB framework learnings (at root)
+- RSB_UPDATES.md                ← RSB compliance journey (at root)
+- Architecture docs             ← System design specs
+
+## Analysis & Validation
+- .analysis/                    ← AI agent analysis outputs
+- bin/validate-docs.sh          ← Documentation health check
+- bin/deploy.sh                 ← Production deployment
+- bin/test.sh                   ← Test runner
+
+====
+ 🔄 SELF-HYDRATING WORKFLOW PROCESS
+====
+
+## STEP 1: CONTEXT HYDRATION (2 minutes)
+□ Read docs/procs/QUICK_REF.txt for immediate context
+□ Read docs/procs/CONTINUE.md for latest session status
+□ Run ./bin/validate-docs.sh to check documentation health
+□ Check git branch and status
+
+## STEP 2: PHASE DETECTION
+Identify current project phase from CONTINUE.md:
+- **Development**: Active coding on features
+- **Testing**: UAT validation and compliance
+- **Refactoring**: RSB compliance or architecture work
+- **Documentation**: Meta-process or docs update
+- **Deployment**: Production release preparation
+
+## STEP 3: WORK EXECUTION PATTERNS
+
+### For DEVELOPMENT Phase:
+1. Check SPRINT.txt for active tasks
+2. Review relevant code in src/
+3. Run cargo test for quick validation
+4. Make changes following RSB patterns
+5. Update CONTINUE.md before closing
+
+### For TESTING Phase:
+1. Run bin/test.sh for full test suite
+2. Check compliance with RSB framework
+3. Validate with UAT scenarios
+4. Document findings in appropriate location
+
+### For REFACTORING Phase:
+1. Review RSB_LESSONS.md for patterns
+2. Check RSB compliance requirements
+3. Run tests frequently during changes
+4. Update architecture docs if needed
+
+### For DOCUMENTATION Phase:
+1. Run validate-docs.sh first
+2. Update stale documents
+3. Ensure all references are valid
+4. Test the workflow yourself
+
+## STEP 4: SESSION CLOSURE REQUIREMENTS
+**MANDATORY** before ending any session:
+□ Update docs/procs/CONTINUE.md with standardized handoff
+□ Update docs/procs/SPRINT.txt if tasks changed
+□ Commit changes with descriptive message
+□ Run validate-docs.sh to ensure health
+□ Note any blockers or critical context
+
+====
+ 📊 PROJECT STATUS QUICK REFERENCE
+====
+
+## Current Architecture
+- **Language**: Rust with RSB framework
+- **Backend**: SQLite with WAL journaling
+- **Pattern**: Multi-user/multi-cursor isolation
+- **Storage**: XDG-compliant paths
+
+## Key Commands
+```bash
+# Build & Test
+cargo build --release
+cargo test
+./bin/test.sh           # Full test suite
+./bin/deploy.sh         # Production deployment
+
+# Documentation
+./bin/validate-docs.sh  # Check doc health
+```
+
+## Critical Patterns
+- RSB Framework compliance (bootstrap! → options! → dispatch!)
+- String-biased APIs throughout
+- Dot addressing for namespaces (app.namespace.key)
+- Multi-agent isolation via --user and --cursor flags
+
+====
+ 🚀 COMMON WORKFLOWS
+====
+
+## New Feature Development
+1. Create feature branch
+2. Update SPRINT.txt with task
+3. Implement with RSB patterns
+4. Add tests to tests/
+5. Update documentation
+6. Create handoff in CONTINUE.md
+
+## Bug Fix Workflow
+1. Reproduce issue
+2. Add failing test
+3. Fix the bug
+4. Verify test passes
+5. Update DONE.txt
+
+## RSB Compliance Check
+1. Review RSB_LESSONS.md
+2. Check macro usage patterns
+3. Verify string-biased APIs
+4. Test parameter expansion
+5. Update RSB_UPDATES.md if needed
+
+====
+ 👥 AGENT QUICK START GUIDE
+====
+
+## Essential Context
+ProntoDB is a production-ready key-value store designed for multi-agent infrastructure. It provides isolated storage contexts through user and cursor flags, enabling multiple AI agents to coordinate without conflicts.
+
+## Architecture Overview
+- Single binary deployment (zero dependencies)
+- SQLite backend with multiple database support
+- RSB framework for consistent CLI patterns
+- XDG Base Directory compliance
+- Comprehensive backup/restore capabilities
+
+## Key Project Background
+- Originally built with RSB framework
+- Major refactor completed for RSB compliance
+- Critical RSB defects fixed (see RSB_UPDATES.md)
+- Production-ready with UAT validation
+
+## Workflow Rules
+1. Always update CONTINUE.md before closing session
+2. Run tests before any significant changes
+3. Follow RSB patterns for all new code
+4. Document architectural decisions
+5. Use validate-docs.sh to ensure health
+
+====
+ 🔗 REFERENCE LINKS BY PRIORITY
+====
+
+1. **Immediate Context**
+   - docs/procs/QUICK_REF.txt
+   - docs/procs/CONTINUE.md
+   - docs/procs/SPRINT.txt
+
+2. **Development**
+   - src/main.rs (entry point)
+   - src/dispatcher.rs (command routing)
+   - src/api.rs (core API)
+   - tests/sanity.rs (test suite)
+
+3. **Documentation**
+   - README.md (project overview)
+   - RSB_LESSONS.md (framework patterns)
+   - RSB_UPDATES.md (compliance journey)
+
+4. **Validation**
+   - bin/validate-docs.sh
+   - bin/test.sh
+   - bin/deploy.sh
+
+====

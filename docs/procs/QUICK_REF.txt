@@ -1,0 +1,57 @@
+====
+ ⚡ PRONTODB QUICK REFERENCE - 30 SECOND CONTEXT
+====
+Updated: 2025-09-21
+
+🎯 **Current Focus**: Meta Process v2 Implementation
+- Setting up self-hydrating workflow system
+- Organizing documentation structure
+- Creating process automation
+
+📊 **Project Status**:
+- ✅ RSB Framework compliance achieved
+- ✅ Core functionality working
+- ✅ Production deployment ready
+- 🔴 Meta Process v2 implementation (IN PROGRESS)
+- ⬆️ Next: Feature enhancements
+
+🚨 **Critical Context**:
+- **Branch**: admin/meta-process (from debug/refactor)
+- **Blockers**: None currently
+- **MVP**: Core KV store complete, multi-agent isolation working
+- **Tests**: 16/16 passing (run ./bin/test.sh)
+
+📋 **Current Tasks** (see docs/procs/SPRINT.txt):
+1. Complete Meta Process v2 documentation structure
+2. Migrate existing docs to new locations
+3. Create validation automation
+4. Test and refine workflow
+
+🏗️ **Architecture**:
+- **Language**: Rust with RSB framework
+- **Backend**: SQLite with WAL mode
+- **Pattern**: String-biased APIs throughout
+- **Storage**: XDG-compliant paths (~/.local/share/prontodb/)
+
+🔧 **Key Commands**:
+```bash
+cargo build --release       # Build optimized binary
+cargo test                  # Run unit tests
+./bin/test.sh              # Full test suite
+./bin/deploy.sh            # Production deployment
+./bin/validate-docs.sh     # Check doc health
+```
+
+⚡ **Immediate Next Steps**:
+1. Read docs/procs/CONTINUE.md for latest status
+2. Check docs/procs/SPRINT.txt for task details
+3. Continue Meta Process implementation
+
+🚨 **Critical Rules**:
+- Always use RSB patterns (bootstrap! → options! → dispatch!)
+- Update CONTINUE.md before closing session
+- Run tests before significant changes
+- Follow string-biased API patterns
+- Document architectural decisions
+
+====

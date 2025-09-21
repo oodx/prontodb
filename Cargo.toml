@@ -20,7 +20,7 @@ serde_json = { version = "1", optional = true }
 
 
 #rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main" }  
-rsb     = { path = "../rsb2", features = ["visuals", "stdopts"] } #local versions with visual + standard options
+rsb     = { path = "../rsb", features = ["visuals", "stdopts"] } #local versions with visual + standard options
 xstream = { path = "../xstream", optional = true } # XStream integration
 
 
