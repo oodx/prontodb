@@ -9,15 +9,14 @@ publish = false
 
 [dependencies]
 # GitHub-first hub integration (following updated HOWTO_HUB.md)
-hub = { git = "https://github.com/oodx/hub.git", features = ["data"] }
-
-anyhow = "1"
+# Testing latest hub with data-ext and error-ext features
+hub = { git = "https://github.com/oodx/hub.git", features = ["data-ext", "error-ext"] }
 atty = "0.2"                                       # TTY detection for pipe input
 directories = "6"
 md5 = "0.8"                                        # Content hashing for cache keys
 rusqlite = { version = "0.37" }                    # default: link to system SQLite
 
-# Hub now manages: tempfile, serde, serde_json via "data" domain group
+# Hub now manages: serde, serde_json, base64 via "data-ext" + anyhow, thiserror via "error-ext"
 
 
 rsb = { git = "https://github.com/oodx/rsb.git", features = ["visuals", "stdopts"] } # GitHub primary method
@@ -40,8 +39,10 @@ tempfile = "3.0"
 
 
 [features]
-default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds
+default = ["json", "thiserror", "sqlite-bundled"] # Include bundled SQLite for easy builds
 json = ["hub/serde", "hub/serde_json"]             # Use hub's serde ecosystem
+serde = ["hub/serde"]                            # Make serde available for derive macros
+thiserror = ["hub/thiserror"]                    # Make thiserror available for derive macros
 streaming = ["dep:xstream"]                        # XStream integration for advanced streaming
 pipe-cache = []                                    # Revolutionary pipe cache with zero data loss
 stdopts = []                                       # Standard options mapping (-d → opt_debug, etc.)
