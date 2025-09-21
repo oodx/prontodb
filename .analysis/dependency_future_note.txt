@@ -1,0 +1,63 @@
+====
+ 📝 IMPORTANT FUTURE DEPENDENCY NOTE
+====
+Date: 2025-09-21
+Status: Current architecture decision
+
+====
+ 🔮 FUTURE RSB-HUB INTEGRATION
+====
+
+**Current State (Temporary)**:
+```toml
+hub = { git = "https://github.com/oodx/hub.git", features = ["data"] }
+rsb = { git = "https://github.com/oodx/rsb.git", features = ["visuals", "stdopts"] }
+```
+
+**Future State (Planned)**:
+```toml
+rsb = { git = "https://github.com/oodx/rsb.git", features = ["visuals", "stdopts", "hub"] }
+# Hub dependencies will be forwarded through RSB automatically
+```
+
+====
+ 🎯 WHY THIS MATTERS
+====
+
+1. **Current**: Dual dependency management (RSB + Hub)
+2. **Future**: Single RSB dependency with hub forwarding
+3. **Benefit**: Cleaner dependency tree, unified versioning
+4. **Timeline**: When RSB integrates hub internally
+
+====
+ 📋 MIGRATION IMPACT
+====
+
+**When RSB forwards hub**:
+- Remove direct hub dependency from Cargo.toml
+- RSB will provide hub's packages through its own features
+- Imports may change from `hub::serde` to `rsb::deps::serde`
+- Cleaner ecosystem with single framework dependency
+
+**No Impact On**:
+- Core architecture decisions
+- Filesystem-first design
+- Per-address keystore approach
+- Application logic
+
+====
+ ⚠️ ACTION REQUIRED
+====
+
+**For Future Maintainers**:
+1. Monitor RSB releases for hub integration
+2. Update ProntoDB when RSB forwards hub
+3. Test migration carefully (dependency resolution)
+4. Update documentation when change occurs
+
+**Current Priority**:
+- Build core modules with current clean dependencies
+- Focus on architectural rebuild
+- Dependency consolidation is future enhancement
+
+====

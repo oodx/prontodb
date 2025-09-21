@@ -1,0 +1,266 @@
+================================================================================
+🐔 CHINA'S PRONTODB MIGRATION ACTION PLAN EGG #2 🥚
+================================================================================
+
+🎯 EXECUTIVE SUMMARY
+==================
+Comprehensive step-by-step plan for migrating ProntoDB from local dependencies to hub
+integration with GitHub RSB. RSB has uncommitted changes requiring coordination.
+Migration provides immediate benefits: unified versioning, faster builds, and
+ecosystem alignment.
+
+🚨 CRITICAL RSB STATUS FINDINGS
+===============================
+LOCAL RSB REPOSITORY STATUS:
+• Branch: main (ahead of origin by 4 commits)
+• Uncommitted changes: 2 modified files, 1 deleted file, 1 untracked directory
+• Remote: git@qodeninja:oodx/rsb.git (private repository)
+• Recent commit: "feat: China consolidates eggs into wisdom files per Meta Process v2"
+
+⚠️  MIGRATION BLOCKER: RSB has unpushed commits and local changes
+→ MUST resolve RSB state before ProntoDB migration
+
+🔄 DEPENDENCY MIGRATION ROADMAP
+===============================
+
+CURRENT STATE ANALYSIS:
+-----------------------
+ProntoDB Dependencies:
+• RSB: path="../rsb" [LOCAL - needs GitHub migration]
+• tempfile: "3" [Available in hub v3.22.0]
+• serde: "1" [Available in hub v1.0.226]
+• serde_json: "1" [Available in hub v1.0.145]
+• 6 external deps remaining [anyhow, atty, directories, md5, rusqlite, xstream]
+
+TARGET STATE:
+-------------
+• RSB: git="https://github.com/oodx/rsb-framework" [Public GitHub]
+• Hub integration: ["tempfile", "serde", "serde_json"]
+• Retain project-specific dependencies as external
+
+📋 PHASE-BY-PHASE MIGRATION PLAN
+=================================
+
+🔧 PHASE 0: PRE-MIGRATION SETUP (CRITICAL)
+------------------------------------------
+□ STEP 0.1: Resolve RSB Repository State
+  • Decision needed: Push RSB commits or stash/discard changes
+  • Coordinate with RSB maintainer for commit strategy
+  • Verify GitHub RSB has required features: ["visuals", "stdopts"]
+
+□ STEP 0.2: Create Migration Branch
+  • Branch: `feature/hub-integration-rsb-migration`
+  • Backup current working state
+  • Document current build/test results as baseline
+
+□ STEP 0.3: Hub Availability Verification
+  • Confirm hub project builds successfully
+  • Verify feature set: ["tempfile", "serde", "serde_json"]
+  • Test hub import paths work correctly
+
+⚡ PHASE 1: IMMEDIATE HUB INTEGRATION (15 minutes)
+--------------------------------------------------
+□ STEP 1.1: Add Hub Dependency
+  Update Cargo.toml:
+  ```toml
+  [dependencies]
+  hub = { path = "../../hub", features = ["tempfile", "serde", "serde_json"] }
+  # Keep existing deps temporarily for validation
+  tempfile = "3"
+  serde = { version = "1", features = ["derive"], optional = true }
+  serde_json = { version = "1", optional = true }
+  ```
+
+□ STEP 1.2: Update Imports (Parallel Approach)
+  Find and update import statements:
+  ```bash
+  # Search for current imports
+  grep -r "use tempfile" src/
+  grep -r "use serde" src/
+  grep -r "use serde_json" src/
+
+  # Update to hub imports
+  # use tempfile → use hub::tempfile
+  # use serde → use hub::serde
+  # use serde_json → use hub::serde_json
+  ```
+
+□ STEP 1.3: Validate Hub Integration
+  • cargo check (should compile with both hub and direct deps)
+  • cargo test (verify functionality unchanged)
+  • cargo build --all-features
+
+□ STEP 1.4: Remove Direct Dependencies
+  Once validation passes, remove from Cargo.toml:
+  ```toml
+  # Remove these lines:
+  # tempfile = "3"
+  # serde = { version = "1", features = ["derive"], optional = true }
+  # serde_json = { version = "1", optional = true }
+  ```
+
+🔄 PHASE 2: RSB GITHUB MIGRATION (30 minutes)
+----------------------------------------------
+□ STEP 2.1: RSB Status Resolution
+  Coordinate RSB repository state:
+  • Push pending commits: `git push origin main`
+  • OR stash changes: `git stash push -m "pre-prontodb-migration"`
+  • Verify GitHub RSB reflects intended state
+
+□ STEP 2.2: Test GitHub RSB Compatibility
+  Temporary test in separate branch:
+  ```toml
+  # Test this change:
+  rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main", features = ["visuals", "stdopts"] }
+  ```
+
+□ STEP 2.3: Validate RSB Features
+  • cargo check with GitHub RSB
+  • Test "visuals" feature functionality
+  • Test "stdopts" feature functionality
+  • Run full test suite
+
+□ STEP 2.4: Update ProntoDB Cargo.toml
+  Final RSB migration:
+  ```toml
+  # Replace:
+  # rsb = { path = "../rsb", features = ["visuals", "stdopts"] }
+  # With:
+  rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main", features = ["visuals", "stdopts"] }
+  ```
+
+🧪 PHASE 3: VALIDATION & OPTIMIZATION (20 minutes)
+---------------------------------------------------
+□ STEP 3.1: Comprehensive Testing
+  • cargo clean && cargo build --all-features
+  • cargo test --all-features
+  • Verify all optional features work: [json, streaming, pipe-cache, stdopts]
+  • Test build with different feature combinations
+
+□ STEP 3.2: Build Performance Validation
+  • Compare build times before/after migration
+  • Verify cargo deduplicates dependencies correctly
+  • Check binary size (should be similar or smaller)
+
+□ STEP 3.3: Integration Testing
+  • Test RSB CLI functionality
+  • Verify ProntoDB core operations
+  • Test feature flag combinations
+
+□ STEP 3.4: Documentation Updates
+  • Update README.md with new build instructions
+  • Document hub feature usage
+  • Note any dependency version changes
+
+📊 EXPECTED BENEFITS POST-MIGRATION
+===================================
+✅ ECOSYSTEM ALIGNMENT:
+• Unified dependency versions with other OODX projects
+• No version conflicts with ecosystem dependencies
+• Centralized security updates through hub
+
+✅ DEVELOPMENT IMPROVEMENTS:
+• Faster builds due to dependency deduplication
+• Cleaner Cargo.toml (3 deps → 1 hub dependency)
+• Simplified dependency management
+
+✅ OPERATIONAL BENEFITS:
+• GitHub RSB enables consistent CI/CD
+• Hub provides centralized vulnerability scanning
+• Easier ecosystem-wide upgrades
+
+📋 RISK MITIGATION CHECKLIST
+============================
+🔒 PRE-MIGRATION SAFEGUARDS:
+• Create migration branch before changes
+• Document current dependency versions
+• Backup working build configuration
+• Test RSB GitHub availability/features
+
+🔒 DURING MIGRATION:
+• Validate each phase before proceeding
+• Keep parallel dependencies during testing
+• Test both development and release builds
+• Verify feature flag combinations work
+
+🔒 POST-MIGRATION VALIDATION:
+• Full regression testing
+• Performance benchmark comparison
+• Integration test with dependent projects
+• Documentation accuracy verification
+
+⚠️  POTENTIAL BLOCKERS & SOLUTIONS
+==================================
+🚧 BLOCKER 1: RSB GitHub Repository Access
+SOLUTION: Verify GitHub RSB URL and access permissions
+         Test: `git ls-remote https://github.com/oodx/rsb-framework`
+
+🚧 BLOCKER 2: RSB Feature Compatibility
+SOLUTION: Compare local vs GitHub RSB feature definitions
+         Validate "visuals" and "stdopts" exist in GitHub version
+
+🚧 BLOCKER 3: Hub Feature Availability
+SOLUTION: Verify hub builds with required features
+         Test: `cd ../../hub && cargo check --features="tempfile,serde,serde_json"`
+
+🚧 BLOCKER 4: Import Path Conflicts
+SOLUTION: Systematic search/replace of import statements
+         Use IDE refactoring tools or careful grep/sed
+
+📈 SUCCESS METRICS
+==================
+TECHNICAL VALIDATION:
+• ✅ cargo check passes with hub dependencies
+• ✅ cargo test passes all existing tests
+• ✅ cargo build --all-features completes successfully
+• ✅ Binary functionality matches pre-migration behavior
+
+ECOSYSTEM INTEGRATION:
+• ✅ No version conflicts with other OODX projects
+• ✅ Hub feature set covers ProntoDB requirements
+• ✅ GitHub RSB provides required functionality
+
+PERFORMANCE:
+• ✅ Build time improved or similar
+• ✅ Binary size similar or reduced
+• ✅ Runtime performance unchanged
+
+🔬 VERIFICATION EVIDENCE
+=======================
+• xrepos analysis confirms shared dependency patterns
+• Hub v0.3.0 contains required packages (tempfile, serde, serde_json)
+• RSB is ecosystem's most used dependency (11 projects)
+• Migration aligns with centralized dependency strategy
+
+📅 ESTIMATED TIMELINE
+====================
+• Phase 0 (RSB resolution): 30-60 minutes (coordination dependent)
+• Phase 1 (Hub integration): 15 minutes
+• Phase 2 (RSB migration): 30 minutes
+• Phase 3 (Validation): 20 minutes
+• TOTAL: 1.5-2 hours (plus RSB coordination time)
+
+📤 IMMEDIATE NEXT ACTIONS
+=========================
+1. **RSB Coordination** - Decide on unpushed commits and local changes
+2. **Create Migration Branch** - `git checkout -b feature/hub-integration-rsb-migration`
+3. **Verify Hub Build** - Test hub with required features
+4. **Begin Phase 1** - Add hub dependency with parallel validation
+
+⚠️  DISCLAIMER
+==============
+This migration plan assumes GitHub RSB repository availability and feature
+compatibility. Actual RSB state, hub availability, and dependency compatibility
+may require plan adjustments. Test each phase thoroughly before proceeding.
+
+📊 EGG METADATA
+===============
+• Created: 2025-09-21 by China the Summary Chicken
+• Agent: User migration planning request
+• Scope: ProntoDB → Hub + GitHub RSB migration
+• Dependencies: RSB status resolution, hub feature availability
+• Timeline: 1.5-2 hours active work + coordination time
+
+================================================================================
+🐔 "From local paths to ecosystem unity - let's make this migration fly!" 🥚
+================================================================================

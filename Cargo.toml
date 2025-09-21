@@ -4,9 +4,8 @@ version = "0.7.0"
 edition = "2021"
 description = "ProntoDB — namespaced, file-based KV on SQLite with RSB-style CLI"
 repository = "https://github.com/oodx/prontodb"
-license = "AGPL-3.0"            
-license-file = "LICENSE"  
-publish = false  
+license = "AGPL-3.0"
+publish = false
 
 [dependencies]
 # GitHub-first hub integration (following updated HOWTO_HUB.md)
@@ -37,6 +36,8 @@ sha2 = { version = "0.10", optional = true }
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.0"
+tempfile = "3.0"
+
 
 [features]
 default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds

@@ -1,14 +1,15 @@
 
-use rsb::prelude::*;
+// Core ProntoDB Application - NOT the admin CLI
+// The admin CLI is separate in src/bin/admin-cli.rs
 
-// Keep the ProntoDB router central (uses RSB dispatch! under the hood)
-use prontodb::core::dispatch::pronto_dispatch;
+use rsb::prelude::*;
+//new base dispatch
 
 fn main() {
-    // CLI + Host bootstrap, then parse options into Global
+    // Core ProntoDB app bootstrap
     let args = bootstrap!();
     options!(&args);
 
-    // Route using RSB dispatch! inside pronto_dispatch (exits with handler status)
-    pronto_dispatch(args);
+    // Core application dispatch (separate from admin CLI)
+    std::process::exit(0); // Placeholder - implement core_dispatch later
 }
