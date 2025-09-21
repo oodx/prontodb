@@ -9,18 +9,20 @@ license-file = "LICENSE"
 publish = false  
 
 [dependencies]
+# GitHub-first hub integration (following updated HOWTO_HUB.md)
+hub = { git = "https://github.com/oodx/hub.git", features = ["data"] }
+
 anyhow = "1"
 atty = "0.2"                                       # TTY detection for pipe input
 directories = "6"
 md5 = "0.8"                                        # Content hashing for cache keys
 rusqlite = { version = "0.37" }                    # default: link to system SQLite
-tempfile = "3"
-serde = { version = "1", features = ["derive"], optional = true }
-serde_json = { version = "1", optional = true }
+
+# Hub now manages: tempfile, serde, serde_json via "data" domain group
 
 
-#rsb = { git = "https://github.com/oodx/rsb-framework", branch = "main" }  
-rsb     = { path = "../rsb", features = ["visuals", "stdopts"] } #local versions with visual + standard options
+rsb = { git = "https://github.com/oodx/rsb.git", features = ["visuals", "stdopts"] } # GitHub primary method
+#rsb = { path = "../rsb", features = ["visuals", "stdopts"] } # Emergency-only local path
 xstream = { path = "../xstream", optional = true } # XStream integration
 
 
@@ -37,8 +39,8 @@ assert_cmd = "2.0"
 predicates = "3.0"
 
 [features]
-default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds  
-json = ["dep:serde", "dep:serde_json"]
+default = ["json", "sqlite-bundled"]               # Include bundled SQLite for easy builds
+json = ["hub/serde", "hub/serde_json"]             # Use hub's serde ecosystem
 streaming = ["dep:xstream"]                        # XStream integration for advanced streaming
 pipe-cache = []                                    # Revolutionary pipe cache with zero data loss
 stdopts = []                                       # Standard options mapping (-d → opt_debug, etc.)
