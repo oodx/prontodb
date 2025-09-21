@@ -32,6 +32,12 @@ Version: Meta Process v2
 - bin/deploy.sh                 ← Production deployment
 - bin/test.sh                   ← Test runner
 
+## Test Infrastructure
+- tests/hub_dependencies.rs     ← Hub baseline tests (8 tests)
+- tests/rsb_sanity.rs          ← RSB framework tests (5 tests)
+- tests/sanity/run.sh          ← Sanity test runner
+- tests/sanity/rsb_*.rs        ← Legacy RSB integration tests
+
 ====
  🔄 SELF-HYDRATING WORKFLOW PROCESS
 ====
@@ -91,6 +97,7 @@ Identify current project phase from CONTINUE.md:
 
 ## Current Architecture
 - **Language**: Rust with RSB framework
+- **Dependencies**: Hub-managed (data-ext, error-ext features)
 - **Backend**: SQLite with WAL journaling
 - **Pattern**: Multi-user/multi-cursor isolation
 - **Storage**: XDG-compliant paths
@@ -99,19 +106,28 @@ Identify current project phase from CONTINUE.md:
 ```bash
 # Build & Test
 cargo build --release
-cargo test
-./bin/test.sh           # Full test suite
-./bin/deploy.sh         # Production deployment
+cargo test                        # All tests (lib + integration)
+./bin/test.sh hub                 # Hub baseline tests (8 tests)
+./bin/test.sh rsb                 # RSB framework tests (5 tests)
+./bin/test.sh sanity              # Sanity test suite
+./bin/deploy.sh                   # Production deployment
 
 # Documentation
-./bin/validate-docs.sh  # Check doc health
+./bin/validate-docs.sh            # Check doc health
 ```
 
 ## Critical Patterns
 - RSB Framework compliance (bootstrap! → options! → dispatch!)
+- Hub dependency management (data-ext, error-ext features)
 - String-biased APIs throughout
 - Dot addressing for namespaces (app.namespace.key)
 - Multi-agent isolation via --user and --cursor flags
+
+## Hub Dependencies
+- hub::data_ext::serde_json (1.0.145) - JSON serialization
+- hub::data_ext::base64 (0.22.1) - Base64 encoding
+- hub::error_ext::anyhow (1.0.100) - Error handling
+- hub::error_ext::thiserror (2.0.16) - Structured errors
 
 ====
  🚀 COMMON WORKFLOWS

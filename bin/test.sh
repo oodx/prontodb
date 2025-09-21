@@ -65,8 +65,9 @@ set -- "${ARGS[@]}"
 declare -A TESTS=(
     # Core RSB test categories
     ["sanity"]="sanity/run.sh"
+    ["hub"]="hub_dependencies.rs"
+    ["rsb"]="rsb_sanity.rs"
     ["crud"]="crud_sanity.rs"
-    ["rsb"]="rsb_cli.rs"
 
     # Future tests (when implemented)
     ["comprehensive"]="comprehensive/prontodb.rs"
@@ -85,8 +86,9 @@ show_help() {
     echo
     echo "Available Commands:"
     echo "  test.sh [options] sanity              Run RSB sanity tests (all modules)"
+    echo "  test.sh [options] hub                 Run hub dependency baseline tests (8 tests)"
+    echo "  test.sh [options] rsb                 Run RSB framework tests (5 tests)"
     echo "  test.sh [options] crud                Run CRUD infrastructure tests"
-    echo "  test.sh [options] rsb                 Run RSB CLI integration tests"
     echo "  test.sh [options] comprehensive       Run complete feature coverage tests"
     echo "  test.sh list                          List available tests"
     echo "  test.sh help                          Show this help"
@@ -101,14 +103,16 @@ show_help() {
     echo ""
     echo "RSB-Compliant Test Categories:"
     echo "  sanity                 RSB feature sanity tests (all modules)"
+    echo "  hub                    Hub dependency baseline tests (8 tests)"
+    echo "  rsb                    RSB framework tests (5 tests)"
     echo "  crud                   CRUD infrastructure validation"
-    echo "  rsb                    RSB CLI integration tests"
     echo "  comprehensive          Complete feature coverage (when implemented)"
     echo ""
     echo "Current Implementation Status:"
-    echo "  ✅ RSB CLI tests passing (3/3)"
+    echo "  ✅ Hub dependency tests passing (8/8)"
+    echo "  ✅ RSB framework tests passing (5/5)"
     echo "  ✅ CRUD sanity tests passing (6/6)"
-    echo "  📋 Next: Complete RSB sanity module integration"
+    echo "  📋 Next: Complete CRUD infrastructure implementation"
     echo "  🎯 Goal: All test categories passing with proper RSB compliance"
 }
 
@@ -167,10 +171,12 @@ run_test() {
         fi
 
         echo "🦀 Running Rust test: $test_file"
-        if [[ "$test_name" == "crud" ]]; then
-            cargo test --test crud_sanity
+        if [[ "$test_name" == "hub" ]]; then
+            cargo test --test hub_dependencies
         elif [[ "$test_name" == "rsb" ]]; then
-            cargo test --test rsb_cli
+            cargo test --test rsb_sanity
+        elif [[ "$test_name" == "crud" ]]; then
+            cargo test --test crud_sanity
         elif [[ "$test_name" == "smoke" ]]; then
             cargo test --test crud_sanity
         else
@@ -232,7 +238,7 @@ show_docs() {
 
 # Main command dispatch
 case "${1:-help}" in
-    "sanity"|"crud"|"rsb"|"comprehensive"|"smoke"|"demo"|"all")
+    "sanity"|"hub"|"rsb"|"crud"|"comprehensive"|"smoke"|"demo"|"all")
         run_test "$1"
         ;;
     "list")
