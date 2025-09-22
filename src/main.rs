@@ -1,4 +1,3 @@
-
 // Core ProntoDB Application - NOT the admin CLI
 // The admin CLI is separate in src/bin/admin-cli.rs
 

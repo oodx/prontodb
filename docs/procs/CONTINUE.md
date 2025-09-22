@@ -1,5 +1,56 @@
 # Continue Log – admin/meta-process + Meta Process v2 Implementation
 
+## HANDOFF-2025-09-22-0200 ✅ Table adapter CRUD+ complete, backup/restore verified
+### Session Duration: 2.5 hours
+### Branch: main (working tree ahead of cf7ae48)
+### Phase: CRUD+ Foundations – table adapter completion & tests
+
+### Completed:
+- ✅ Implemented table `update`, `backup`, and `restore` verbs with JSON backup payloads (`src/lib/adpt/sqlite/table.rs`)
+- ✅ Added table backup format (`TableBackupFile`) using `hub::serde` and base64 blob encoding
+- ✅ Extended smoke tests covering table capabilities, update, and backup/restore roundtrip (`tests/sqlite_adapter_smoke.rs`, `tests/sqlite_table_smoke.rs`)
+- ✅ Refreshed process docs (QUICK_REF, SPRINT, TASKS, ROADMAP) to reflect new coverage and status
+- ✅ `cargo test` (hub, rsb, sqlite suites) passes
+
+### Notes:
+- Table backups write JSON (`schema_sql` + rows) and restore expects matching table name; format documented implicitly in tests
+- Record adapter remains stubbed; CRUD_SPEC requires full verb support next
+- Admin CLI still needs wiring/tests for new table verbs and eventual record coverage
+
+### Next Agent SHOULD:
+1. Implement record adapter verbs per CRUD_SPEC and add matching smoke/admin CLI coverage
+2. Document JSON backup format in `CRUD_SPEC` or dedicated reference if needed
+3. Add CRUD-focused RSB sanity lane once record support lands
+
+### Tests: `cargo test`
+
+---
+
+## HANDOFF-2025-09-22-0100 ✅ SQLite adapters verified, docs aligned
+### Session Duration: 1.0 hours
+### Branch: main (working tree ahead of cf7ae48)
+### Phase: CRUD+ Foundations – verification & documentation refresh
+
+### Completed:
+- ✅ Reviewed `docs/ref/CRUD_SPEC.md` and confirmed shipped modules follow the published spec
+- ✅ Validated CRUD core orchestrator + trait (`src/lib/core/crud/`) and SQLite adapters (base/table) with fresh smoke tests
+- ✅ Ran `cargo test` (hub, rsb, sqlite smoke suites) – all passing
+- ✅ Updated QUICK_REF, SPRINT, TASKS, and ROADMAP to reflect current CRUD+ progress
+
+### Notes:
+- Record adapter (`src/lib/adpt/sqlite/record.rs`) still stubbed out; spec calls for full verb coverage later
+- Admin CLI (`src/lib/cli/admin/`, `src/bin/admin.rs`) now dispatches SQLite adapters via RSB patterns
+- New smoke tests ensure capability map advertises table verbs; record remains unsupported until implemented
+
+### Next Agent SHOULD:
+1. Implement record-level verbs per CRUD_SPEC (`CRUD-03`) and extend smoke coverage
+2. Flesh out admin CLI command UX/tests for table + record flows
+3. Keep CONTINUE/SPRINT updated as CRUD tasks reach completion
+
+### Tests: `cargo test`
+
+---
+
 ## HANDOFF-2025-09-21-1500 🚨 CRITICAL DISCOVERY
 ### Session Duration: 1.0 hours
 ### Branch: admin/meta-process

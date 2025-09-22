@@ -1,5 +1,3 @@
-
-
 // // Handle global flags by parsing them and executing commands with context
 // fn handle_global_flags_and_execute(args: Vec<String>) -> Option<i32> {
 //     let mut cursor_name: Option<String> = None;
@@ -10,7 +8,7 @@
 //     let mut explicit_cursor_flag = false;  // Track if --cursor was used
 //     let mut explicit_database_flag = false;  // Track if --database was used
 //     let mut i = 1; // Skip program name
-    
+
 //     // Parse global flags and remaining args
 //     while i < args.len() {
 //         match args[i].as_str() {
@@ -43,42 +41,42 @@
 //             }
 //         }
 //     }
-    
+
 //     if command_args.is_empty() {
 //         eprintln!("Error: No command specified after global flags");
 //         return Some(1);
 //     }
-    
+
 //     let command = &command_args[0];
 //     let remaining_args: Vec<String> = command_args[1..].to_vec();
-    
+
 //     // Update cursor cache if --cursor flag was used
 //     if explicit_cursor_flag {
 //         if let Some(ref cursor_db) = cursor_name {
 //             use prontodb::cursor_cache::CursorCache;
 //             let cache = CursorCache::new();
 //             let cache_user = if user == "default" { None } else { Some(user.as_str()) };
-            
+
 //             if let Err(e) = cache.set_cursor(cursor_db, cache_user) {
 //                 eprintln!("Warning: Failed to update cursor cache: {}", e);
 //                 // Continue execution - don't fail the command due to cache update failure
 //             }
 //         }
 //     }
-    
+
 //     // Auto-selection logic: Check cursor cache if no explicit database flag was provided
 //     if !explicit_database_flag {
 //         use prontodb::cursor_cache::CursorCache;
 //         let cache = CursorCache::new();
-        
+
 //         // Determine which user to check for cursor cache
 //         let cache_user = if user == "default" { None } else { Some(user.as_str()) };
-        
+
 //         if let Some(cached_database) = cache.get_cursor(cache_user) {
 //             database = cached_database;
 //         }
 //     }
-    
+
 //     // Execute command with global context
 //     match command.as_str() {
 //         "set" => Some(execute_with_context("set", remaining_args, cursor_name.as_deref(), &user, &database, meta_context.as_deref())),

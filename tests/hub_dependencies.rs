@@ -10,8 +10,8 @@ mod hub_data_tests {
     fn test_hub_serde_json_basic() {
         // Test basic JSON parsing with hub serde_json
         let json = r#"{"name":"test","value":42,"enabled":true}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json)
-            .expect("Failed to parse JSON with hub serde_json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(json).expect("Failed to parse JSON with hub serde_json");
 
         assert_eq!(parsed["name"], "test");
         assert_eq!(parsed["value"], 42);
@@ -22,8 +22,14 @@ mod hub_data_tests {
     fn test_hub_serde_json_serialization() {
         // Test JSON generation with hub serde_json
         let mut obj = serde_json::Map::new();
-        obj.insert("name".to_string(), serde_json::Value::String("test".to_string()));
-        obj.insert("count".to_string(), serde_json::Value::Number(serde_json::Number::from(42)));
+        obj.insert(
+            "name".to_string(),
+            serde_json::Value::String("test".to_string()),
+        );
+        obj.insert(
+            "count".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(42)),
+        );
 
         let json = serde_json::to_string(&serde_json::Value::Object(obj))
             .expect("Failed to serialize JSON with hub serde_json");
@@ -34,11 +40,12 @@ mod hub_data_tests {
 
     #[test]
     fn test_hub_base64_roundtrip() {
-        use hub::data_ext::base64::{Engine as _, engine::general_purpose};
+        use hub::data_ext::base64::{engine::general_purpose, Engine as _};
 
         let original = b"ProntoDB hub test";
         let encoded = general_purpose::STANDARD.encode(original);
-        let decoded = general_purpose::STANDARD.decode(&encoded)
+        let decoded = general_purpose::STANDARD
+            .decode(&encoded)
             .expect("Failed to decode base64 with hub");
 
         assert_eq!(decoded, original);
@@ -47,8 +54,8 @@ mod hub_data_tests {
     #[test]
     fn test_hub_json_value_manipulation() {
         let json = r#"{"count": 5, "items": ["a", "b"]}"#;
-        let mut value: serde_json::Value = serde_json::from_str(json)
-            .expect("Failed to parse JSON value");
+        let mut value: serde_json::Value =
+            serde_json::from_str(json).expect("Failed to parse JSON value");
 
         assert_eq!(value["count"], 5);
         assert_eq!(value["items"][0], "a");
@@ -77,8 +84,7 @@ mod hub_error_tests {
             Err(anyhow::anyhow!("Base error"))
         }
 
-        let result = failing_operation()
-            .context("Operation failed");
+        let result = failing_operation().context("Operation failed");
 
         assert!(result.is_err());
         let error_string = format!("{:?}", result.unwrap_err());

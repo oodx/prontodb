@@ -1,59 +1,49 @@
 ====
  ⚡ PRONTODB QUICK REFERENCE - 30 SECOND CONTEXT
 ====
-Updated: 2025-09-21
+Updated: 2025-09-22
 
-🎯 **Current Focus**: 🚨 CRITICAL ARCHITECTURAL REBUILD REQUIRED
-- DISCOVERY: Shared database architecture is fundamentally broken
-- BLOCKER: Each address needs isolated keystore for true multi-agent support
-- STATUS: Complete rebuild required - current codebase compromised
+🎯 **Current Focus**: CRUD+ Foundations (SQLite adapters, admin CLI)
+- CRUD core module (`src/lib/core/crud/`) implements Forge-aligned trait + lifecycle
+- SQLite base + table adapters online; table now handles update + JSON backup/restore; record adapter still stubbed
+- Admin CLI wraps adapters via RSB bootstrap/options/dispatch (binary: `prontodb-admin`)
 
-📊 **Project Status**:
-- ✅ Meta Process v2 implementation complete
-- ✅ RSB Framework patterns preserved
-- 🚨 CRITICAL: Storage architecture fundamentally flawed
-- 🔴 URGENT: Complete rebuild required
-- ⬆️ Next: Design per-address keystore architecture
+📊 **Project Status Highlights**:
+- ✅ Hub dependencies migrated (data-ext, error-ext) with passing baseline tests
+- ✅ CRUD_SPEC published (`docs/ref/CRUD_SPEC.md`) and matched by shipped modules
+- ✅ `cargo test` lane covers hub, rsb, and sqlite smoke suites
+- ⚠️ Record-level CRUD verbs remain to be implemented (CRUD-03)
 
 🚨 **Critical Context**:
-- **Branch**: admin/meta-process
-- **BLOCKER**: Shared SQLite breaks multi-agent isolation
-- **DISCOVERY**: Per-address keystores required for correct operation
-- **IMPACT**: Current multi-agent claims are false - architecture broken
+- Working branch: `main` (ahead of cf7ae48)
+- CONTINUE.md updated with verification notes (2025-09-22-0100)
+- Keep docs in sync as CRUD tasks finish; avoid reverting partially-complete modules
 
-📋 **Current Tasks** (see docs/procs/SPRINT.txt):
-1. Complete Meta Process v2 documentation structure
-2. Migrate existing docs to new locations
-3. Create validation automation
-4. Test and refine workflow
-
-🏗️ **Architecture**:
-- **Language**: Rust with RSB framework
-- **Backend**: SQLite with WAL mode
-- **Pattern**: String-biased APIs throughout
-- **Storage**: XDG-compliant paths (~/.local/share/prontodb/)
+📋 **Active Tasks** (see `docs/procs/SPRINT.txt`):
+1. Finish CRUD-03 (record adapter verbs + CLI coverage; table JSON backup done)
+2. Harden admin CLI UX/tests around CRUD paths
+3. Migrate legacy docs + finish validation automation (META-02/03)
 
 🔧 **Key Commands**:
 ```bash
-cargo build --release       # Build optimized binary
-cargo test                  # Run unit tests
-./bin/test.sh              # Full test suite
-./bin/deploy.sh            # Production deployment
-./bin/validate-docs.sh     # Check doc health
+cargo test                     # Hub, RSB, and SQLite smoke suites
+./bin/test.sh hub              # Hub dependency baseline
+./bin/test.sh rsb              # RSB feature checks
+./bin/validate-docs.sh         # Documentation health
+prontodb-admin --help          # Admin CLI entry point
 ```
 
 ⚡ **Immediate Next Steps**:
-1. Build core storage modules (keystore.rs, paths.rs, address.rs)
-2. Implement filesystem-first addressing architecture
-3. Create per-address keystore system
+1. Implement record adapter verbs + extend smoke coverage per CRUD_SPEC
+2. Wire admin CLI commands to exercise table/record operations end-to-end
+3. Plan per-address keystore work once CRUD+ layer is solid
 
-💡 **FUTURE DEPENDENCY NOTE**: RSB will eventually forward hub itself, eliminating dual deps
+💡 **RSB/HUB Note**: RSB will eventually forward hub deps natively; today both repos stay explicit.
 
-🚨 **Critical Rules**:
-- Always use RSB patterns (bootstrap! → options! → dispatch!)
-- Update CONTINUE.md before closing session
-- Run tests before significant changes
-- Follow string-biased API patterns
-- Document architectural decisions
+🚨 **Workflow Rules**:
+- Follow RSB pattern order: `bootstrap!` → `options!` → `dispatch!`
+- Update CONTINUE.md + SPRINT/TASKS on every handoff
+- Run appropriate tests before/after changes
+- Preserve string-biased APIs and deterministic errors
 
 ====

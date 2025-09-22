@@ -1,90 +1,60 @@
 ====
  🗺️ PRONTODB STRATEGIC ROADMAP
 ====
-Last Updated: 2025-09-21
-Vision: Production-ready multi-agent KV store
+Last Updated: 2025-09-22
+Vision: Forge-inspired CRUD+ platform for multi-agent key/value storage
 
 ====
- ✅ COMPLETED MILESTONES
+ 📦 CURRENT STATE SNAPSHOT
 ====
-
-[M1] RSB Framework Compliance - COMPLETE
-- Fixed critical RSB defects
-- Achieved full compliance
-- Comprehensive test coverage
-
-[M2] Core KV Store - COMPLETE
-- SQLite backend with WAL
-- Multi-user isolation
-- Multi-cursor contexts
-- Dot addressing syntax
-
-[M3] Production Deployment - COMPLETE
-- Single binary deployment
-- XDG compliance
-- Deploy/test scripts
-- Backup/restore capability
+- Previous architecture archived after isolation flaws were discovered.
+- CRUD core module + SQLite base/table adapters are now implemented with smoke coverage.
+- Hub + RSB dependencies sourced from GitHub, baseline + RSB tests remain green.
 
 ====
  🔴 CURRENT MILESTONE
 ====
-
-[M4] Meta Process v2 Implementation - IN PROGRESS (40%)
-- Self-hydrating workflow system
-- 5-minute agent onboarding
-- Documentation automation
-- Target: 2025-09-21
+[M1] CRUD+ Foundations (70% → target 2025-09-30)
+- ✅ CRUD_SPEC published; Forge primer available for zero-context readers.
+- ✅ Core CRUD trait + lifecycle hooks shipped (`src/lib/core/crud/`).
+- ✅ SQLite base + table adapters live (table layer now covers update + JSON backup/restore); record adapter scaffolded (verbs pending).
+- ✅ Admin CLI binary (`src/bin/admin.rs`) wraps adapters using RSB patterns.
+- 🟡 RSB sanity lanes exist for prior work; need CRUD-focused coverage (GLOBAL/HOST/OPTIONS/STRINGS/FS).
 
 ====
  ⬆️ UPCOMING MILESTONES
 ====
+[M2] Multi-Agent Data Plane
+- Per-address keystore layout + XDG enforcement.
+- Transaction + concurrency strategy on top of CRUD+ adapters.
+- CLI workflows for namespace management.
 
-[M5] XStream Integration - PLANNED
-- Stream processing capabilities
-- Real-time data pipelines
-- Enhanced performance
-- Target: Q4 2025
-
-[M6] Advanced Features - PLANNED
-- Distributed replication
-- Clustering support
-- GraphQL API layer
-- Target: Q1 2026
-
-[M7] Enterprise Features - FUTURE
-- LDAP/SSO integration
-- Audit logging
-- Compliance frameworks
-- Target: Q2 2026
+[M3] Integration Patterns & Foundry Alignment
+- Compose CRUD+ operations into higher order flows (queueing, batch, scripting).
+- Evaluate Forge/Foundry compatibility requirements.
+- Expand test harness for multi-agent orchestration.
 
 ====
- 📊 PROJECT METRICS
+ 🧭 GUIDING PRINCIPLES
 ====
-
-- Lines of Code: ~3000
-- Test Coverage: 85%
-- Documentation: Comprehensive
-- Production Ready: YES
-- RSB Compliant: YES
+1. Forge patterns must be explicit in docs and code comments; no tribal knowledge.
+2. Every RSB feature used must ship with a sanity/integration test.
+3. Keep modules MODULE_SPEC compliant: orchestrator `mod.rs`, helpers/utilities split, CLI logic in `lib/` only.
+4. Prefer string-first APIs and deterministic error surfaces.
 
 ====
- 🎯 STRATEGIC PRIORITIES
+ 📊 PROGRESS METRICS (INITIAL TARGETS)
 ====
-
-1. **Reliability**: Zero data loss, robust recovery
-2. **Performance**: Sub-millisecond operations
-3. **Usability**: Intuitive CLI, great docs
-4. **Integration**: Multi-agent workflows
-5. **Compliance**: RSB framework adherence
+- CRUD trait coverage: 9/9 verbs exposed via trait; unsupported verbs return deterministic errors.
+- SQLite adapters: base/table complete with JSON backup/restore; record verbs outstanding.
+- Admin CLI: base/table command paths wired; record + extended UX still pending.
+- RSB sanity lanes: Legacy coverage present; add CRUD-specific GLOBAL/HOST/OPTIONS/STRINGS/FS tests.
 
 ====
- 💡 INNOVATION OPPORTUNITIES
+ 💡 STRATEGIC OPPORTUNITIES
 ====
-
-- AI agent coordination protocols
-- Distributed consensus algorithms
-- Time-series data support
-- Event sourcing patterns
-- CRDT implementations
+- Reuse Forge lifecycle hooks for logging/policy enforcement.
+- Offer backup/restore flows for future distributed replication work.
+- Align CLI UX with other RSB-native admin tools for consistency.
 
 ====

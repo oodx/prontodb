@@ -1,77 +1,74 @@
 ====
  📋 PRONTODB TASK BREAKDOWN
 ====
-Last Updated: 2025-09-21
-Total Tasks: 25
+Last Updated: 2025-09-22
+Total Tasks Tracked: 18
 
 ====
- 🔴 HIGH PRIORITY
+ 🔴 HIGH PRIORITY — CRUD+ REBUILD
 ====
 
-[META-01] Complete Meta Process v2 Implementation (8 SP)
-[META-02] Migrate Existing Documentation (3 SP)
-[META-03] Create Validation Automation (2 SP)
-[META-04] Test Self-Hydrating Workflow (2 SP)
+[CRUD-00] Forge Primer & CRUD_SPEC (2 SP) — ✅ Complete (2025-09-21)
+- `docs/ref/CRUD_SPEC.md` published with Forge primer + ProntoDB scope.
+- Spec aligns with shipped CRUD core + adapter modules.
+
+[CRUD-01] Core CRUD Trait & Lifecycle Hooks (5 SP) — ✅ Complete (2025-09-22)
+- `src/lib/core/crud/` orchestrator, capability map, lifecycle types implemented.
+- Trait dispatch covers all CRUD+ verbs with deterministic unsupported errors.
+- Smoke tests exercise dispatch + metadata plumbing.
+
+[CRUD-02] SQLite Base Adapter (4 SP) — ✅ Complete (2025-09-22)
+- `src/lib/adpt/sqlite/base.rs` handles create/read/backup/restore with WAL toggles.
+- Helpers in `utils.rs` configure connection flags + WAL mode.
+- Smoke suite (`tests/sqlite_adapter_smoke.rs`) covers happy paths and metadata.
+
+[CRUD-03] SQLite Table & Record Adapters (5 SP) — 🟡 In Progress
+- Table adapter covers create/read/update/delete/list/find plus JSON backup/restore export.
+- Record adapter scaffolded; verbs remain unsupported pending spec decisions.
+- Follow-up: implement record verbs, wire admin CLI flows, expand smoke/integration coverage.
+
+[CLI-01] Admin CLI Library Module (4 SP)
+- Build src/lib/cli/admin/ following MODULE_SPEC (commands, handlers, dispatcher).
+- Wire RSB bootstrap/options/dispatch patterns; expose CRUD verbs as commands.
+
+[CLI-02] Admin CLI Binary Wrapper (1 SP)
+- Add src/bin/admin.rs thin shim invoking the library module.
+- Ensure binary documentation + help output reference Forge concepts briefly.
+
+[TEST-01] RSB Feature Sanity Tests (3 SP)
+- Add targeted tests covering GLOBAL, HOST, OPTIONS, STRINGS, FS usage invoked by admin CLI.
+- Update ./bin/test.sh lanes if required.
 
 ====
- 🟡 MEDIUM PRIORITY
+ 🟡 MEDIUM PRIORITY — PLATFORM SUPPORT
 ====
 
-[FEAT-01] Implement TTL cache expiry threads (5 SP)
-[FEAT-02] Add regex pattern matching for keys (3 SP)
-[FEAT-03] Implement bulk operations API (5 SP)
-[TEST-01] Expand test coverage to 95% (3 SP)
-[DOCS-01] Create API reference documentation (2 SP)
+[DOC-01] Update START/QUICK_REF/CONTINUE for CRUD+ (2 SP)
+[DOC-02] Align ROADMAP/SPRINT summaries with Forge-aligned rebuild (1 SP)
+[OPS-01] Validate doc automation scripts once CRUD_SPEC lands (1 SP)
+[OPS-02] Refresh ./bin/test.sh to add admin CLI lane (1 SP)
 
 ====
- 🟢 LOW PRIORITY
+ 🟢 LOW PRIORITY — FUTURE WORK
 ====
 
-[ENHANCE-01] Add colored output for CLI (1 SP)
-[ENHANCE-02] Implement progress bars for long operations (2 SP)
-[ENHANCE-03] Add shell completion scripts (2 SP)
-[REFACTOR-01] Optimize storage layer performance (5 SP)
-[REFACTOR-02] Reduce binary size (3 SP)
+[RESEARCH-01] Evaluate Foundry orchestration requirements
+[RESEARCH-02] Plan per-address keystore leveraging CRUD+
+[ENHANCE-01] CLI UX polish (colors, prompts once visuals enabled)
+[ENHANCE-02] Progress output for long-running backup/restore
 
 ====
- 💡 BACKLOG (UNSCHEDULED)
+ 📥 BACKLOG / ARCHIVED FROM PRIOR ARCHITECTURE
 ====
-
-[RESEARCH-01] Investigate distributed consensus
-[RESEARCH-02] Explore WASM compilation
-[FEATURE-01] GraphQL API layer
-[FEATURE-02] WebSocket streaming support
-[FEATURE-03] Prometheus metrics export
-[FEATURE-04] Kubernetes operator
-[FEATURE-05] Terraform provider
+- META-01/02/03/04 retained for reference; revisit after CRUD+ rebuild stabilizes.
+- Previous feature backlog (TTL cache, regex keys, bulk ops) deferred.
 
 ====
- 🔧 TECHNICAL DEBT
+ 📊 METRICS
 ====
-
-[DEBT-01] Refactor error handling to use thiserror (3 SP)
-[DEBT-02] Update dependencies to latest versions (1 SP)
-[DEBT-03] Remove deprecated API calls (2 SP)
-[DEBT-04] Improve logging consistency (2 SP)
-
-====
- 🎯 DERIVED TASKS (from analysis)
-====
-
-[DER-01] Create performance benchmarks suite
-[DER-02] Add integration tests for multi-agent scenarios
-[DER-03] Document RSB patterns for contributors
-[DER-04] Create troubleshooting guide
-
-====
- 📊 TASK METRICS
-====
-
-- Total Story Points: 58 SP
-- High Priority: 15 SP
-- Medium Priority: 18 SP
-- Low Priority: 13 SP
-- Technical Debt: 8 SP
-- Unscheduled: N/A
+- High Priority SP: 24
+- Medium Priority SP: 5
+- Low Priority SP: TBD (qualitative)
+- Tests pending: CRUD record adapter coverage, admin CLI integration, RSB CRUD sanity lane
 
 ====

@@ -1,9 +1,9 @@
 ====
  🏃 PRONTODB CURRENT SPRINT
 ====
-Sprint: Hub Integration & Test Infrastructure
+Sprint: CRUD+ Foundations
 Started: 2025-09-21
-Target: Complete hub dependency integration and baseline testing
+Target: Stand up Forge-aligned CRUD layer and SQLite adapters
 
 ====
  📋 ACTIVE TASKS
@@ -14,13 +14,25 @@ Target: Complete hub dependency integration and baseline testing
 - Created comprehensive baseline tests (13/13 passing)
 - Proper test infrastructure in tests/ directory
 - Updated test.sh script and process documentation
-- Status: 100% complete
+- Status: 100% complete (2025-09-21)
 
-[CRUD-01] Implement Generic CRUD Interface (10 SP) - READY
-- Create core CRUD trait in src/lib/core/crud.rs
-- Build SQLite adapters in lib/adpt/sqlite/
-- Focus on generic, reusable CRUD system
-- Status: Ready to start
+[CRUD-01] Implement Generic CRUD Interface (10 SP) - COMPLETED ✅
+- Core CRUD orchestrator + trait shipped in `src/lib/core/crud/`
+- Capability map + lifecycle hooks available for adapters
+- Smoke tests confirm dispatch + metadata plumbing
+- Status: 100% complete (2025-09-22)
+
+[CRUD-02] SQLite Base Adapter (4 SP) - COMPLETED ✅
+- Base adapter handles create/read/backup/restore with WAL + metadata
+- Smoke tests cover filesystem interactions (backup/restore)
+- Admin CLI exposes base verbs via RSB
+- Status: 100% complete (2025-09-22)
+
+[CRUD-03] SQLite Table & Record Adapters (5 SP) - IN PROGRESS 🟡
+- Table adapter now covers create/read/update/delete/list/find plus JSON backup/restore pipeline
+- Record adapter scaffolded; all verbs currently unsupported stubs
+- Added smoke coverage for update + backup/restore JSON roundtrip (`tests/sqlite_table_smoke.rs`)
+- Status: 80% complete (record verbs outstanding)
 
 [META-02] Migrate Existing Documentation (3 SP) - PENDING
 - Move archive docs to docs/misc/archive
@@ -41,20 +53,20 @@ Target: Complete hub dependency integration and baseline testing
  🎯 SPRINT GOALS
 ====
 
-1. ✅ Complete hub dependency integration with latest features
-2. ✅ Establish comprehensive test infrastructure
-3. ✅ Update process documentation and test.sh script
-4. 🎯 Ready to implement generic CRUD interface
+1. ✅ Ship CRUD core trait + capability infrastructure
+2. ✅ Deliver SQLite base + table adapters with smoke coverage
+3. 🟡 Finish record adapter verbs + extend admin CLI tests
+4. 🟡 Close META tasks (documentation migration + validation tooling)
 
 ====
  📊 SPRINT METRICS
 ====
 
-- Total Story Points: 18 SP
-- Completed: 8 SP (HUB-01)
-- Ready to Start: 10 SP (CRUD-01)
-- Remaining: 3 SP (META-02)
-- Sprint Progress: 44% (8/18)
+- Total Story Points: 24 SP
+- Completed: 14 SP (HUB-01, CRUD-01, CRUD-02)
+- In Progress: 5 SP (CRUD-03)
+- Remaining: 5 SP (META-02/03/04)
+- Sprint Progress: 63%
 
 ====
  ⚡ QUICK WINS AVAILABLE
@@ -62,7 +74,7 @@ Target: Complete hub dependency integration and baseline testing
 
 - ✅ ./bin/test.sh hub - Hub dependency baseline tests (8/8 passing)
 - ✅ ./bin/test.sh rsb - RSB framework tests (5/5 passing)
-- ✅ cargo test - All integration and unit tests
-- 🎯 Ready to start CRUD implementation per original requirements
+- ✅ cargo test - Hub, RSB, and SQLite smoke suites (table JSON backup roundtrip passing)
+- 🎯 Focus: Implement record adapter verbs + harden admin CLI flows
 
 ====
